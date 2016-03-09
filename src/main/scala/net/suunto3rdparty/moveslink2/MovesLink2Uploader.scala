@@ -10,7 +10,7 @@ object MovesLink2Uploader {private val log = Logger.getLogger(classOf[MovesLink2
 
 class MovesLink2Uploader {
   private def getDataFolder: File = {
-    var folderName = "Moveslink2"
+    val folderName = "Moveslink2"
     val suuntoHome = Util.getSuuntoHome
     if (suuntoHome == null) {
       return null

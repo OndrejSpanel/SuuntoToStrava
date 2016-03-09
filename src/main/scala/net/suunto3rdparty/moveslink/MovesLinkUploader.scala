@@ -34,7 +34,7 @@ class MovesLinkUploader {
       val fileName = file.getName.toLowerCase
       if (fileName.startsWith("quest_") && fileName.endsWith(".xml")) {
         MovesLinkUploader.log.info("Analyzing " + fileName)
-        val moves = new XMLParser(file).parse
+        val moves = XMLParser.parse(file)
         if (moves == null) {
           MovesLinkUploader.log.info("There's no moves in " + file.getName)
           //file.renameTo(new File(noMovesFolder, file.getName))
