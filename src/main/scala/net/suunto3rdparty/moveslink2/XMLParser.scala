@@ -20,10 +20,10 @@ object XMLParser {
   private val PositionConstant: Double = 57.2957795131
 }
 
-class XMLParser
-(val xmlFile: File) {
+class XMLParser(val xmlFile: File) {
   XMLParser.log.debug("Parsing " + xmlFile.getName)
 
+  private val suuntoMove = new SuuntoMove
   val (doc, header) = if (xmlFile.getName.endsWith(".xml")) {
     val d = getXMLDocument(xmlFile)
     d -> d.getElementsByTagName("header").item(0).asInstanceOf[Element]
@@ -40,7 +40,6 @@ class XMLParser
   if (parseHeader(header)) {
     parseSamples(samples, rr)
   }
-  private val suuntoMove = new SuuntoMove
   private var parseCompleted: Boolean = false
   def isParseCompleted = parseCompleted
   def getSuuntoMove = suuntoMove
@@ -80,7 +79,7 @@ class XMLParser
       XMLParser.log.info("    not a running move")
       return false
     }
-    val distance: Int = Util.getChildElementValue(header, "Distance").toInt
+    val distance = Util.getChildElementValue(header, "Distance").toInt
     if (distance == 0) {
       XMLParser.log.info("    distance zero")
       return false
@@ -126,30 +125,30 @@ class XMLParser
         }
         if (!inPause) {
           val sampleType = Util.getChildElementValue(sample, "SampleType")
-          if (sampleType == null) {}
-          else if (sampleType.equalsIgnoreCase("periodic")) {
-            val distanceStr: String = Util.getChildElementValue(sample, "Distance")
+          if (sampleType != null && sampleType.equalsIgnoreCase("periodic")) {
+            val distanceStr = Util.getChildElementValue(sample, "Distance")
             if (distanceStr != null) {
               timeList += Util.doubleFromString(Util.getChildElementValue(sample, "Time")) - pausedTime
-              val hrStr: String = Util.getChildElementValue(sample, "HR")
+              val hrStr = Util.getChildElementValue(sample, "HR")
               if (hrStr != null) {
                 hasHR = true
               }
               hrList += Util.doubleFromString(hrStr)
-              val ele: Int = Util.doubleFromString(Util.getChildElementValue(sample, "Altitude")).intValue
+              val ele = Util.doubleFromString(Util.getChildElementValue(sample, "Altitude")).intValue
               if (ele > 0) {
                 currentAltitude = ele
               }
               distanceList += Util.doubleFromString(distanceStr)
             }
-          } else if (sampleType.toLowerCase.contains("gps")) {
+          } else {
+            // GPS Track POD samples contain no "SampleType" children
             val lat = Util.doubleFromString(Util.getChildElementValue(sample, "Latitude")) * XMLParser.PositionConstant
             val lon = Util.doubleFromString(Util.getChildElementValue(sample, "Longitude")) * XMLParser.PositionConstant
             var ele = Util.doubleFromString(Util.getChildElementValue(sample, "GPSAltitude")).toInt
             if (ele == 0) {
               ele = currentAltitude
             }
-            val utc: String = Util.getChildElementValue(sample, "UTC")
+            val utc = Util.getChildElementValue(sample, "UTC")
             suuntoMove.addTrackPoint(lat, lon, ele, utc)
           }
         }
@@ -158,7 +157,7 @@ class XMLParser
     val hrArray = populateHRArray(hrList)
     val distanceArray = populateDistanceArray(distanceList)
     val timeToDistance = generateTimeToDistanceSplineFunction(timeArray, distanceArray)
-    var timeToHR = if (hasHR || rr == null) {
+    val timeToHR = if (hasHR || rr == null) {
       generateTimeToHRSplineFunction(timeArray, hrArray)
     }
     else {
@@ -175,8 +174,8 @@ class XMLParser
     while (t < suuntoMove.getDuration) {
       {
         t += 10 * 1000
-        val hr: Int = interpolate(timeToHR, t).toInt
-        val distance: Int = interpolate(timeToDistance, t).toInt
+        val hr = interpolate(timeToHR, t).toInt
+        val distance = interpolate(timeToDistance, t).toInt
         suuntoMove.addHeartRateSample(hr)
         suuntoMove.addDistanceSample(distance)
       }
