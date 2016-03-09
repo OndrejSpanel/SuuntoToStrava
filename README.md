@@ -2,7 +2,9 @@
 
 Automatic merge and upload of Suunto Quest and Suunto GPS Tracking Pod data.
 
-The main point of the project is to automate steps needed when using [Suunto GPS Tracking Pod][SuuntoGPS]
+**Work in progress, not working yet.**
+
+The main point of the utility is to automate steps needed when using [Suunto GPS Tracking Pod][SuuntoGPS]
 in combination [Suunto Quest sporttester watches][SuuntoQuest] with [Strava][Strava].
 
 The utility uses local copies of data uploaded to Movescount by Moveslink software, merges GPS and Heart Rate data and sends them to Strava.
