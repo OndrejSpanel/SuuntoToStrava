@@ -1,11 +1,9 @@
 package net.suunto3rdparty
 package moveslink
 
-import java.io.{File, IOException}
+import java.io.File
 
-import com.sun.tools.javac.util.ArrayUtils
 import org.apache.log4j.Logger
-import org.w3c.dom.Document
 
 object MovesLinkUploader extends MovesLinkUploader {
   private val log = Logger.getLogger(classOf[MovesLinkUploader])

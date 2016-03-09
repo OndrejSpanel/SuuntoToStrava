@@ -18,9 +18,9 @@ object Main extends App {
     log.info("Upload MovesLink done.")
   }
 
-  private def uploadMovesLink2(dev: Boolean = false) {
+  private def uploadMovesLink2() {
     log.info("Uploading MovesLink2 ...")
-    val ml2f = new MovesLink2Uploader(dev)
+    val ml2f = new MovesLink2Uploader
     if (!ml2f.checkIfEnvOkay) {
       return
     }

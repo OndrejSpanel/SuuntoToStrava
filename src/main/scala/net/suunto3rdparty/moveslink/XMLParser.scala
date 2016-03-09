@@ -73,21 +73,17 @@ class XMLParser(var xmlFile: File) {
   }
 
   private def parseHeader(header: Element, suuntoMove: SuuntoMove) {
-    suuntoMove.setCalories(getChildElementValue(header, "Calories").toInt)
-    suuntoMove.setDistance(getChildElementValue(header, "Distance").toInt)
-    suuntoMove.setStartTime(getChildElementValue(header, "Time"))
-    val durationStr: String = getChildElementValue(header, "Duration")
-    val matcher: Matcher = durationPattern.matcher(durationStr)
+    suuntoMove.calories = getChildElementValue(header, "Calories").toInt
+    suuntoMove.distance = getChildElementValue(header, "Distance").toInt
+    suuntoMove.startTime = getChildElementValue(header, "Time")
+    val durationStr = getChildElementValue(header, "Duration")
+    val matcher = durationPattern.matcher(durationStr)
     if (matcher.matches) {
-      val hour: Int = matcher.group(1).toInt
-      val minute: Int = matcher.group(2).toInt
-      val second: Int = matcher.group(3).toInt
-      var ms: Int = 0
-      if (!matcher.group(4).isEmpty) {
-        ms = matcher.group(4).toInt
-      }
-      ms = (hour * 3600 + minute * 60 + second) * 1000 + ms
-      suuntoMove.setDuration(ms)
+      val hour = matcher.group(1).toInt
+      val minute = matcher.group(2).toInt
+      val second = matcher.group(3).toInt
+      val ms = if (!matcher.group(4).isEmpty) matcher.group(4).toInt else 0
+      suuntoMove.duration = (hour * 3600 + minute * 60 + second) * 1000 + ms
     }
   }
   private def getChildElementValue(parent: Element, elementName: String): String = {

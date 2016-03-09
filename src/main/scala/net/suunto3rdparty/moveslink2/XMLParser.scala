@@ -42,22 +42,19 @@ class XMLParser(val xmlFile: File) {
   }
   private var parseCompleted: Boolean = false
   def isParseCompleted = parseCompleted
-  def getSuuntoMove = suuntoMove
 
   private def getXMLDocument(xmlFile: File): Document = {
-    val in: BufferedReader = new BufferedReader(new FileReader(xmlFile))
-    val firstLine: String = in.readLine
+    val in = new BufferedReader(new FileReader(xmlFile))
+    val firstLine = in.readLine
     if (firstLine.trim.toLowerCase != "<?xml version=\"1.0\" encoding=\"utf-8\"?>") {
       in.close()
       throw new Exception("File format not correct: " + xmlFile.getName)
     }
-    val sb: StringBuilder = new StringBuilder
+    val sb = new StringBuilder
     sb.append(firstLine)
     sb.append("<data>")
     while (in.ready) {
-      {
-        sb.append(in.readLine)
-      }
+      sb.append(in.readLine)
     }
     in.close()
     sb.append("</data>")
@@ -84,11 +81,11 @@ class XMLParser(val xmlFile: File) {
       XMLParser.log.info("    distance zero")
       return false
     }
-    suuntoMove.setDistance(distance)
-    suuntoMove.setDuration((Util.doubleFromString(Util.getChildElementValue(header, "Duration")).doubleValue * 1000).asInstanceOf[Int])
-    suuntoMove.setCalories(Util.kiloCaloriesFromKilojoules(Util.doubleFromString(Util.getChildElementValue(header, "Energy"))))
+    suuntoMove.distance = distance
+    suuntoMove.duration = (Util.doubleFromString(Util.getChildElementValue(header, "Duration")).doubleValue * 1000).toInt
+    suuntoMove.calories = Util.kiloCaloriesFromKilojoules(Util.doubleFromString(Util.getChildElementValue(header, "Energy")))
     val dateTime = Util.getChildElementValue(header, "DateTime")
-    suuntoMove.setStartTime(XMLParser.dateFormat.parse(dateTime))
+    suuntoMove.startTime = SuuntoMove.dateFormat.format(XMLParser.dateFormat.parse(dateTime))
     true
   }
   private def getRRArray(rrData: String): Array[Int] = {
@@ -171,7 +168,7 @@ class XMLParser(val xmlFile: File) {
       generateTimeToHRSplineFunction(timeArray, hrArray)
     }
     var t: Double = 0
-    while (t < suuntoMove.getDuration) {
+    while (t < suuntoMove.duration) {
       {
         t += 10 * 1000
         val hr = interpolate(timeToHR, t).toInt

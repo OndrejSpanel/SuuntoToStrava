@@ -8,12 +8,9 @@ import org.apache.log4j.Logger
 
 object MovesLink2Uploader {private val log = Logger.getLogger(classOf[MovesLink2Uploader])}
 
-class MovesLink2Uploader(val dev: Boolean) {
+class MovesLink2Uploader {
   private def getDataFolder: File = {
     var folderName = "Moveslink2"
-    if (dev) {
-      folderName = "Moveslink2-dev"
-    }
     val suuntoHome = Util.getSuuntoHome
     if (suuntoHome == null) {
       return null
