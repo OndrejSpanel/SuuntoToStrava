@@ -3,7 +3,7 @@ package moveslink2
 
 import java.io._
 import java.text.SimpleDateFormat
-import javax.xml.parsers.{DocumentBuilder, DocumentBuilderFactory}
+import javax.xml.parsers.DocumentBuilderFactory
 
 import NodeListOps._
 import org.apache.commons.math.ArgumentOutsideDomainException
@@ -23,23 +23,24 @@ object XMLParser {
 class XMLParser
 (val xmlFile: File) {
   XMLParser.log.debug("Parsing " + xmlFile.getName)
-  var doc: Document = null
-  var header: Element = null
-  if (xmlFile.getName.endsWith(".xml")) {
-    doc = getXMLDocument(xmlFile)
-    header = doc.getElementsByTagName("header").item(0).asInstanceOf[Element]
+
+  val (doc, header) = if (xmlFile.getName.endsWith(".xml")) {
+    val d = getXMLDocument(xmlFile)
+    d -> d.getElementsByTagName("header").item(0).asInstanceOf[Element]
   }
-  if (xmlFile.getName.endsWith(".sml")) {
-    doc = getSMLDocument(xmlFile)
-    header = doc.getElementsByTagName("Header").item(0).asInstanceOf[Element]
+  else if (xmlFile.getName.endsWith(".sml")) {
+    val d = getSMLDocument(xmlFile)
+    d -> d.getElementsByTagName("Header").item(0).asInstanceOf[Element]
   }
-  val samples: Element = doc.getElementsByTagName("Samples").item(0).asInstanceOf[Element]
-  val rrData: String = Util.getChildElementValue(doc.getDocumentElement, "R-R", "Data")
+  else throw new UnsupportedOperationException(s"Unknown data format ${xmlFile.getName}")
+
+  val samples = doc.getElementsByTagName("Samples").item(0).asInstanceOf[Element]
+  val rrData = Util.getChildElementValue(doc.getDocumentElement, "R-R", "Data")
   val rr = getRRArray(rrData)
   if (parseHeader(header)) {
     parseSamples(samples, rr)
   }
-  private val suuntoMove: SuuntoMove = new SuuntoMove
+  private val suuntoMove = new SuuntoMove
   private var parseCompleted: Boolean = false
   def isParseCompleted = parseCompleted
   def getSuuntoMove = suuntoMove
@@ -61,20 +62,20 @@ class XMLParser
     }
     in.close()
     sb.append("</data>")
-    val stream: InputStream = new ByteArrayInputStream(sb.toString.getBytes("UTF-8"))
-    val dbFactory: DocumentBuilderFactory = DocumentBuilderFactory.newInstance
-    val dBuilder: DocumentBuilder = dbFactory.newDocumentBuilder
+    val stream = new ByteArrayInputStream(sb.toString.getBytes("UTF-8"))
+    val dbFactory = DocumentBuilderFactory.newInstance
+    val dBuilder = dbFactory.newDocumentBuilder
     dBuilder.parse(stream)
   }
 
   private def getSMLDocument(xmlFile: File): Document = {
-    val dbFactory: DocumentBuilderFactory = DocumentBuilderFactory.newInstance
-    val dBuilder: DocumentBuilder = dbFactory.newDocumentBuilder
+    val dbFactory = DocumentBuilderFactory.newInstance
+    val dBuilder = dbFactory.newDocumentBuilder
     dBuilder.parse(new FileInputStream(xmlFile))
   }
 
   private def parseHeader(header: Element): Boolean = {
-    val moveType: Int = Util.getChildElementValue(header, "ActivityType").toInt
+    val moveType = Util.getChildElementValue(header, "ActivityType").toInt
     if (moveType != 3 && moveType != 93 && moveType != 82) {
       XMLParser.log.info("    not a running move")
       return false
@@ -87,7 +88,7 @@ class XMLParser
     suuntoMove.setDistance(distance)
     suuntoMove.setDuration((Util.doubleFromString(Util.getChildElementValue(header, "Duration")).doubleValue * 1000).asInstanceOf[Int])
     suuntoMove.setCalories(Util.kiloCaloriesFromKilojoules(Util.doubleFromString(Util.getChildElementValue(header, "Energy"))))
-    val dateTime: String = Util.getChildElementValue(header, "DateTime")
+    val dateTime = Util.getChildElementValue(header, "DateTime")
     suuntoMove.setStartTime(XMLParser.dateFormat.parse(dateTime))
     true
   }

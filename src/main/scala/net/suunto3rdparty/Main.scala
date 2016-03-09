@@ -20,7 +20,7 @@ object Main extends App {
 
   private def uploadMovesLink2(dev: Boolean = false) {
     log.info("Uploading MovesLink2 ...")
-    val ml2f: MovesLink2Uploader = new MovesLink2Uploader(dev)
+    val ml2f = new MovesLink2Uploader(dev)
     if (!ml2f.checkIfEnvOkay) {
       return
     }

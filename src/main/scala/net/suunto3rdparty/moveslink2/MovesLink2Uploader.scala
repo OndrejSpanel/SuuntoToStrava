@@ -35,14 +35,14 @@ class MovesLink2Uploader(val dev: Boolean) {
   }
 
   def uploadXMLFiles(): Unit = {
-    val folder: File = getDataFolder
-    val notRunFolder: File = new File(folder, "NotRun")
-    val uploadedMovesFolder: File = new File(folder, "Uploaded")
-    notRunFolder.mkdir
-    uploadedMovesFolder.mkdir
-    val files: Array[File] = folder.listFiles
+    val folder = getDataFolder
+    //val notRunFolder = new File(folder, "NotRun")
+    //val uploadedMovesFolder = new File(folder, "Uploaded")
+    //notRunFolder.mkdir
+    //uploadedMovesFolder.mkdir
+    val files = folder.listFiles
     for (file <- files) {
-      val fileName: String = file.getName.toLowerCase
+      val fileName = file.getName.toLowerCase
       if ((fileName.startsWith("log-") && fileName.endsWith(".xml")) || fileName.endsWith(".sml")) {
         MovesLink2Uploader.log.info("Analyzing " + fileName)
         val parser = new XMLParser(file)

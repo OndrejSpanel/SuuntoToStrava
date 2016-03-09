@@ -13,24 +13,23 @@ object XMLParser {private val log: Logger = Logger.getLogger(classOf[XMLParser])
 
 class XMLParser(var xmlFile: File) {
   XMLParser.log.debug("Parsing " + xmlFile.getName)
-  val dbFactory: DocumentBuilderFactory = DocumentBuilderFactory.newInstance
-  val dBuilder: DocumentBuilder = dbFactory.newDocumentBuilder
-  val document: Document = dBuilder.parse(xmlFile)
-  val movesCountList: NodeList = document.getElementsByTagName("MovesCount")
+  private val dbFactory = DocumentBuilderFactory.newInstance
+  private val dBuilder = dbFactory.newDocumentBuilder
+  private val document = dBuilder.parse(xmlFile)
+  private val movesCountList = document.getElementsByTagName("MovesCount")
   if (movesCountList.getLength != 1) {
     throw new Exception("not valid moves count xml file, MovesCount node count: " + movesCountList.getLength)
   }
-  val movesCount: Element = movesCountList.item(0).asInstanceOf[Element]
-  val movesList: NodeList = movesCount.getElementsByTagName("Moves")
+  private val movesCount = movesCountList.item(0).asInstanceOf[Element]
+  private val movesList = movesCount.getElementsByTagName("Moves")
   if (movesList.getLength != 1) {
     throw new Exception("not valid moves count xml file, Moves node count: " + movesList.getLength)
   }
-  moves = movesList.item(0).asInstanceOf[Element]
+  private val moves = movesList.item(0).asInstanceOf[Element]
   final private val durationPattern: Pattern = Pattern.compile("(\\d+):(\\d+):(\\d+)\\.?(\\d*)")
-  private var moves: Element = null
 
   def parse: Seq[SuuntoMove] = {
-    val moveList: NodeList = moves.getElementsByTagName("Move")
+    val moveList = moves.getElementsByTagName("Move")
     if (moveList.getLength == 0) {
       XMLParser.log.debug("No moves data in " + xmlFile.getName)
       return null
@@ -39,11 +38,11 @@ class XMLParser(var xmlFile: File) {
     val suuntoMoves = moveList.toSeq.zipWithIndex.flatMap { case (moveItem, i) =>
       try {
         val move = moveItem.asInstanceOf[Element]
-        val suuntoMove = new SuuntoMove
         val header = move.getElementsByTagName("Header").item(0).asInstanceOf[Element]
         val samples = move.getElementsByTagName("Samples").item(0).asInstanceOf[Element]
+        val suuntoMove = parseSamples(samples)
         parseHeader(header, suuntoMove)
-        Some(parseSamples(samples))
+        Some(suuntoMove)
       }
       catch {
         case e: Exception =>

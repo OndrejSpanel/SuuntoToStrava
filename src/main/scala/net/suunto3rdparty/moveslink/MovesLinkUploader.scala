@@ -20,7 +20,7 @@ class MovesLinkUploader {
   }
 
   def uploadXMLFiles(): Unit = {
-    val folder: File = getDataFolder
+    val folder = getDataFolder
     /*
     val noMovesFolder: File = new File(folder, "NoMoves")
     val duplicateMovesFolder: File = new File(folder, "Duplicates")
@@ -31,7 +31,7 @@ class MovesLinkUploader {
     pendingMovesFolder.mkdir
     uploadedMovesFolder.mkdir
     */
-    val files: Array[File] = folder.listFiles
+    val files = folder.listFiles
     for (file <- files) {
       val fileName = file.getName.toLowerCase
       if (fileName.startsWith("quest_") && fileName.endsWith(".xml")) {
