@@ -4,29 +4,34 @@ import java.text.SimpleDateFormat
 
 import scala.collection.mutable
 
-object SuuntoMove {val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")}
+object SuuntoMove {
+  val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+
+  case class Header(startTime: String = "", duration: Int = 0, calories: Int = 0, distance: Int = 0)
+  case class TrackPoint(latitude: Double, longitude: Double, elevation: Option[Int], time: String)
+}
 
 case class SuuntoMove(var startTime: String = "", var duration: Int = 0, var calories: Int = 0, var distance: Int = 0) {
+  import SuuntoMove._
+
+  private var distanceSamples = Seq[Int]()
+  private var heartRateSamples = Seq[Int]()
+  private var trackPoints = Seq[TrackPoint]()
+
   def this(distSamples: Seq[Int], hrSamples: Seq[Int]) = {
     this()
     distanceSamples ++= distSamples
     heartRateSamples ++= hrSamples
   }
 
-  private var distanceSamples = mutable.ArrayBuffer[Int]()
-  private var heartRateSamples = mutable.ArrayBuffer[Int]()
-  private var trackPoints = mutable.ArrayBuffer[TrackPoint]()
-
-  def addDistanceSample(distance: Int): Unit =  {
-    distanceSamples += distance
-  }
-  def addHeartRateSample(heartRate: Int): Unit =  {
-    heartRateSamples += heartRate
-  }
-  def addTrackPoint(lat: Double, lon: Double, ele: Int, time: String): Unit = {
-    trackPoints += TrackPoint(lat, lon, ele, time)
+  def this(header: SuuntoMove.Header, distSamples: Seq[Int], hrSamples: Seq[Int], trackPointSamples: Seq[SuuntoMove.TrackPoint]) = {
+    this(header.startTime, header.duration, header.calories, header.distance)
+    distanceSamples = distSamples
+    heartRateSamples = hrSamples
+    trackPoints = trackPointSamples
   }
 
-  case class TrackPoint(latitude: Double, longitude: Double, elevation: Int, time: String)
-
+  def this(header: SuuntoMove.Header, distSamples: Seq[Int], hrSamples: Seq[Int]) = {
+    this(header, distSamples, hrSamples, Seq())
+  }
 }
