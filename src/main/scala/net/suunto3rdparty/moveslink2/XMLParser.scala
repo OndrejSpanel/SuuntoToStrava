@@ -5,8 +5,14 @@ import java.io._
 import java.text.SimpleDateFormat
 import javax.xml.parsers.{DocumentBuilder, DocumentBuilderFactory}
 
+import NodeListOps._
+import org.apache.commons.math.ArgumentOutsideDomainException
+import org.apache.commons.math.analysis.interpolation.SplineInterpolator
+import org.apache.commons.math.analysis.polynomials.PolynomialSplineFunction
 import org.apache.log4j.Logger
 import org.w3c.dom.{Document, Element, NodeList}
+
+import scala.collection.mutable
 
 object XMLParser {
   private val log: Logger = Logger.getLogger(classOf[XMLParser])
@@ -30,7 +36,7 @@ class XMLParser
   val samples: Element = doc.getElementsByTagName("Samples").item(0).asInstanceOf[Element]
   val rrData: String = Util.getChildElementValue(doc.getDocumentElement, "R-R", "Data")
   val rr = getRRArray(rrData)
-  if (pareseHeader(header)) {
+  if (parseHeader(header)) {
     parseSamples(samples, rr)
   }
   private val suuntoMove: SuuntoMove = new SuuntoMove
@@ -41,7 +47,7 @@ class XMLParser
   private def getXMLDocument(xmlFile: File): Document = {
     val in: BufferedReader = new BufferedReader(new FileReader(xmlFile))
     val firstLine: String = in.readLine
-    if (!firstLine.trim.toLowerCase == "<?xml version=\"1.0\" encoding=\"utf-8\"?>") {
+    if (firstLine.trim.toLowerCase != "<?xml version=\"1.0\" encoding=\"utf-8\"?>") {
       in.close()
       throw new Exception("File format not correct: " + xmlFile.getName)
     }
@@ -67,7 +73,7 @@ class XMLParser
     dBuilder.parse(new FileInputStream(xmlFile))
   }
 
-  private def pareseHeader(header: Element): Boolean = {
+  private def parseHeader(header: Element): Boolean = {
     val moveType: Int = Util.getChildElementValue(header, "ActivityType").toInt
     if (moveType != 3 && moveType != 93 && moveType != 82) {
       XMLParser.log.info("    not a running move")
@@ -85,31 +91,25 @@ class XMLParser
     suuntoMove.setStartTime(XMLParser.dateFormat.parse(dateTime))
     true
   }
-  private def getRRArray(rrData: String): util.ArrayList[Integer] = {
+  private def getRRArray(rrData: String): Array[Int] = {
     if (rrData == null) return null
-    val rrArray: Array[String] = rrData.split(" ")
-    val result: util.ArrayList[Integer] = new util.ArrayList[Integer](rrArray.length)
-    for (rr <- rrArray) {
-      result.add(rr.toInt)
-    }
-    result
+    val rrArray = rrData.split(" ")
+    for (rr <- rrArray) yield rr.toInt
   }
 
-  private def parseSamples(samples: Element, rr: Array[Integer]): Boolean = {
+  private def parseSamples(samples: Element, rr: Seq[Int]): Boolean = {
     val sampleList: NodeList = samples.getElementsByTagName("Sample")
-    val timeList = new util.ArrayList[Double]
-    val hrList = new util.ArrayList[Double]
-    val distanceList = new util.ArrayList[Double]
+    val timeList = mutable.ArrayBuffer[Double]()
+    val hrList = mutable.ArrayBuffer[Double]()
+    val distanceList = mutable.ArrayBuffer[Double]()
     var pausedTime: Double = 0.0
     var pauseStartTime: Double = 0.0
-    var inPause: Boolean = true
+    var inPause: Boolean = false
     var hasHR: Boolean = false
     var currentAltitude: Int = 0
-    var i: Int = 0
-    while (i < sampleList.getLength) {
-      {
-        val sample: Element = sampleList.item(i).asInstanceOf[Element]
-        val pause: String = Util.getChildElementValue(sample, "Events", "Pause", "State")
+    for (sampleItem <- sampleList.toSeq) {
+        val sample = sampleItem.asInstanceOf[Element]
+        val pause = Util.getChildElementValue(sample, "Events", "Pause", "State")
         if (pause != null) {
           val time: Double = Util.doubleFromString(Util.getChildElementValue(sample, "Time"))
           if (pause.equalsIgnoreCase("false")) {
@@ -123,46 +123,40 @@ class XMLParser
             inPause = true
           }
         }
-        if (inPause) continue //todo: continue is not supported
-      val sampleType: String = Util.getChildElementValue(sample, "SampleType")
-        if (sampleType == null) continue //todo: continue is not supported
-        if (sampleType.equalsIgnoreCase("periodic")) {
-          val distanceStr: String = Util.getChildElementValue(sample, "Distance")
-          if (distanceStr != null) {
-            timeList.add(Util.doubleFromString(Util.getChildElementValue(sample, "Time")) - pausedTime)
-            val hrStr: String = Util.getChildElementValue(sample, "HR")
-            if (hrStr != null) {
-              hasHR = true
+        if (!inPause) {
+          val sampleType = Util.getChildElementValue(sample, "SampleType")
+          if (sampleType == null) {}
+          else if (sampleType.equalsIgnoreCase("periodic")) {
+            val distanceStr: String = Util.getChildElementValue(sample, "Distance")
+            if (distanceStr != null) {
+              timeList += Util.doubleFromString(Util.getChildElementValue(sample, "Time")) - pausedTime
+              val hrStr: String = Util.getChildElementValue(sample, "HR")
+              if (hrStr != null) {
+                hasHR = true
+              }
+              hrList += Util.doubleFromString(hrStr)
+              val ele: Int = Util.doubleFromString(Util.getChildElementValue(sample, "Altitude")).intValue
+              if (ele > 0) {
+                currentAltitude = ele
+              }
+              distanceList += Util.doubleFromString(distanceStr)
             }
-            hrList.add(Util.doubleFromString(hrStr))
-            val ele: Int = Util.doubleFromString(Util.getChildElementValue(sample, "Altitude")).intValue
-            if (ele > 0) {
-              currentAltitude = ele
+          } else if (sampleType.toLowerCase.contains("gps")) {
+            val lat = Util.doubleFromString(Util.getChildElementValue(sample, "Latitude")) * XMLParser.PositionConstant
+            val lon = Util.doubleFromString(Util.getChildElementValue(sample, "Longitude")) * XMLParser.PositionConstant
+            var ele = Util.doubleFromString(Util.getChildElementValue(sample, "GPSAltitude")).toInt
+            if (ele == 0) {
+              ele = currentAltitude
             }
-            distanceList.add(Util.doubleFromString(distanceStr))
+            val utc: String = Util.getChildElementValue(sample, "UTC")
+            suuntoMove.addTrackPoint(lat, lon, ele, utc)
           }
-          continue //todo: continue is not supported
         }
-        if (sampleType.toLowerCase.contains("gps")) {
-          val lat: Double = Util.doubleFromString(Util.getChildElementValue(sample, "Latitude")) * XMLParser.PositionConstant
-          val lon: Double = Util.doubleFromString(Util.getChildElementValue(sample, "Longitude")) * XMLParser.PositionConstant
-          var ele: Int = Util.doubleFromString(Util.getChildElementValue(sample, "GPSAltitude")).intValue
-          if (ele == 0) {
-            ele = currentAltitude
-          }
-          val utc: String = Util.getChildElementValue(sample, "UTC")
-          suuntoMove.addTrackPoint(lat, lon, ele, utc)
-        }
-      }
-      ({i += 1; i})
     }
-    var timeArray: Array[Double] = new Array[Double](timeList.size)
-    var hrArray: Array[Double] = new Array[Double](hrList.size)
-    val distanceArray: Array[Double] = new Array[Double](distanceList.size)
-    populateTimeArray(timeArray, timeList)
-    populateHRArray(hrArray, hrList, timeArray)
-    populateDistanceArray(distanceArray, distanceList)
-    val timeToDistance: Nothing = generateTimeToDistanceSplineFunction(timeArray, distanceArray)
+    val timeArray = populateTimeArray(timeList)
+    val hrArray = populateHRArray(hrList)
+    val distanceArray = populateDistanceArray(distanceList)
+    val timeToDistance = generateTimeToDistanceSplineFunction(timeArray, distanceArray)
     var timeToHR = if (hasHR || rr == null) {
       generateTimeToHRSplineFunction(timeArray, hrArray)
     }
@@ -190,33 +184,32 @@ class XMLParser
     true
   }
 
-  private def interpolate(spline: Nothing, x: Double): Double = {
+  private def interpolate(spline: PolynomialSplineFunction, x: Double): Double = {
     try {
-      return spline.value(x)
+      spline.value(x)
     }
     catch {
-      case aode: ArgumentOutsideDomainException => {
-        val knots: Array[Double] = spline.getKnots
-        return spline.value(knots(if (x < knots(0)) 0 else spline.getN - 1))
-      }
+      case _: ArgumentOutsideDomainException =>
+        val knots = spline.getKnots
+        spline.value(knots(if (x < knots(0)) 0 else spline.getN - 1))
     }
   }
-  private def generateTimeToDistanceSplineFunction(timeArray: Array[Double], distanceArray: Array[Double]): Nothing = {
-    val interpolator: Nothing = new Nothing
-    interpolator.interpolate(timeArray, distanceArray)
+  private def generateTimeToDistanceSplineFunction(timeArray: Seq[Double], distanceArray: Seq[Double]): PolynomialSplineFunction = {
+    val interpolator = new SplineInterpolator
+    interpolator.interpolate(timeArray.toArray, distanceArray.toArray)
   }
-  private def populateDistanceArray(distanceArray: Array[Double], distanceList: Array[Double]) {
+  private def populateDistanceArray(distanceList: Seq[Double]): Seq[Double] =  {
     for (d <- distanceList) yield d
   }
 
-  private def populateHRArray(hrArray: Array[Double], hrList: Array[Double], timeArray: Array[Double]) {
+  private def populateHRArray(hrList: Seq[Double]): Seq[Double] =  {
     for (hr <- hrList) yield hr * 60
   }
-  private def populateTimeArray(timeArray: Array[Double], timeList: Array[Double]) {
+  private def populateTimeArray(timeList: Seq[Double]): Seq[Double] = {
     for (time <- timeList) yield time * 1000
   }
-  private def generateTimeToHRSplineFunction(timeArray: Array[Double], hrArray: Array[Double]): Nothing = {
-    val interpolator: Nothing = new Nothing
-    interpolator.interpolate(timeArray, hrArray)
+  private def generateTimeToHRSplineFunction(timeArray: Seq[Double], hrArray: Seq[Double]): PolynomialSplineFunction = {
+    val interpolator = new SplineInterpolator
+    interpolator.interpolate(timeArray.toArray, hrArray.toArray)
   }
 }

@@ -21,6 +21,7 @@ class MovesLinkUploader {
 
   def uploadXMLFiles(): Unit = {
     val folder: File = getDataFolder
+    /*
     val noMovesFolder: File = new File(folder, "NoMoves")
     val duplicateMovesFolder: File = new File(folder, "Duplicates")
     val pendingMovesFolder: File = new File(folder, "Pending")
@@ -29,36 +30,26 @@ class MovesLinkUploader {
     duplicateMovesFolder.mkdir
     pendingMovesFolder.mkdir
     uploadedMovesFolder.mkdir
+    */
     val files: Array[File] = folder.listFiles
     for (file <- files) {
-      val fileName: String = file.getName.toLowerCase
+      val fileName = file.getName.toLowerCase
       if (fileName.startsWith("quest_") && fileName.endsWith(".xml")) {
         MovesLinkUploader.log.info("Analyzing " + fileName)
         val moves = new XMLParser(file).parse
         if (moves == null) {
           MovesLinkUploader.log.info("There's no moves in " + file.getName)
-          file.renameTo(new File(noMovesFolder, file.getName))
-        }
-        else if (isDuplicated(file, pendingMovesFolder, uploadedMovesFolder)) {
-          MovesLinkUploader.log.info(file.getName + " duplicates existing moves")
-          file.renameTo(new File(duplicateMovesFolder, file.getName))
+          //file.renameTo(new File(noMovesFolder, file.getName))
         } else {
           MovesLinkUploader.log.info("Moving file into pending folder: " + file.getName)
-          file.renameTo(new File(pendingMovesFolder, file.getName))
+          //file.renameTo(new File(pendingMovesFolder, file.getName))
         }
-      }
-    }
-    MovesLinkUploader.log.info("Uploading all files in pending folder.")
-    for (file <- pendingMovesFolder.listFiles) {
-      val moves = new XMLParser(file).parse
-      for (move <- moves) yield {
-        move
       }
     }
   }
 
   def checkIfEnvOkay: Boolean = {
-    val folder: File = getDataFolder
+    val folder = getDataFolder
     if (!folder.exists) {
       MovesLinkUploader.log.info("Cannot find MovesLink data folder at " + folder.getAbsolutePath)
       return false

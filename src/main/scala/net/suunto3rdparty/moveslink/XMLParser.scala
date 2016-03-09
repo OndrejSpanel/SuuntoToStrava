@@ -2,18 +2,16 @@ package net.suunto3rdparty
 package moveslink
 
 import java.io.File
-import java.text.ParseException
 import java.util.regex.{Matcher, Pattern}
 import javax.xml.parsers.{DocumentBuilder, DocumentBuilderFactory}
+import NodeListOps._
 
-import net.suunto3rdparty.SuuntoMove
 import org.apache.log4j.Logger
 import org.w3c.dom.{Document, Element, NodeList}
 
 object XMLParser {private val log: Logger = Logger.getLogger(classOf[XMLParser])}
 
-class XMLParser @throws[Exception]
-(var xmlFile: File) {
+class XMLParser(var xmlFile: File) {
   XMLParser.log.debug("Parsing " + xmlFile.getName)
   val dbFactory: DocumentBuilderFactory = DocumentBuilderFactory.newInstance
   val dBuilder: DocumentBuilder = dbFactory.newDocumentBuilder
@@ -30,61 +28,51 @@ class XMLParser @throws[Exception]
   moves = movesList.item(0).asInstanceOf[Element]
   final private val durationPattern: Pattern = Pattern.compile("(\\d+):(\\d+):(\\d+)\\.?(\\d*)")
   private var moves: Element = null
-  @throws[Exception]
-  def parse: Array[SuuntoMove] = {
+
+  def parse: Seq[SuuntoMove] = {
     val moveList: NodeList = moves.getElementsByTagName("Move")
     if (moveList.getLength == 0) {
       XMLParser.log.debug("No moves data in " + xmlFile.getName)
       return null
     }
-    val suuntoMoves: util.ArrayList[SuuntoMove] = new util.ArrayList[SuuntoMove]
     XMLParser.log.debug(moveList.getLength + " move elements in this file")
-    var i: Int = 0
-    while (i < moveList.getLength) {
-      {
-        try {
-          val move: Element = moveList.item(i).asInstanceOf[Element]
-          val suuntoMove: SuuntoMove = new SuuntoMove
-          val header: Element = move.getElementsByTagName("Header").item(0).asInstanceOf[Element]
-          parseHeader(header, suuntoMove)
-          val samples: Element = move.getElementsByTagName("Samples").item(0).asInstanceOf[Element]
-          parseSamples(samples, suuntoMove)
-          suuntoMoves.add(suuntoMove)
-        }
-        catch {
-          case e: Exception => {
-            XMLParser.log.info("Data invalid in the no. " + (i + 1) + " of the moves")
-          }
-        }
+    val suuntoMoves = moveList.toSeq.zipWithIndex.flatMap { case (moveItem, i) =>
+      try {
+        val move = moveItem.asInstanceOf[Element]
+        val suuntoMove = new SuuntoMove
+        val header = move.getElementsByTagName("Header").item(0).asInstanceOf[Element]
+        val samples = move.getElementsByTagName("Samples").item(0).asInstanceOf[Element]
+        parseHeader(header, suuntoMove)
+        Some(parseSamples(samples))
       }
-      ({i += 1; i})
+      catch {
+        case e: Exception =>
+          XMLParser.log.info(s"Data invalid in the no. ${i + 1} of the moves")
+          None
+      }
     }
-    if (suuntoMoves.size == 0) {
-      return null
-    }
-    val moves: Array[SuuntoMove] = new Array[SuuntoMove](suuntoMoves.size)
-    suuntoMoves.toArray(moves)
-    return moves
+    suuntoMoves
   }
-  private def parseSamples(samples: Element, suuntoMove: SuuntoMove) {
+
+  private def parseSamples(samples: Element): SuuntoMove = {
+    val suuntoMove = new SuuntoMove
     val distanceStr: String = getChildElementValue(samples, "Distance")
     val heartRateStr: String = getChildElementValue(samples, "HR")
     var currentSum: Int = 0
     for (distance <- distanceStr.split(" ")) {
-      if (distance.trim.isEmpty) {
-        continue //todo: continue is not supported
+      if (!distance.trim.isEmpty) {
+        currentSum += distance.toInt
+        suuntoMove.addDistanceSample(currentSum)
       }
-      currentSum += distance.toInt
-      suuntoMove.addDistanceSample(currentSum)
     }
     for (heartRate <- heartRateStr.split(" ")) {
-      if (heartRate.trim.isEmpty) {
-        continue //todo: continue is not supported
+      if (!heartRate.trim.isEmpty) {
+        suuntoMove.addHeartRateSample(heartRate.toInt)
       }
-      suuntoMove.addHeartRateSample(heartRate.toInt)
     }
+    suuntoMove
   }
-  @throws[ParseException]
+
   private def parseHeader(header: Element, suuntoMove: SuuntoMove) {
     suuntoMove.setCalories(getChildElementValue(header, "Calories").toInt)
     suuntoMove.setDistance(getChildElementValue(header, "Distance").toInt)
@@ -104,7 +92,7 @@ class XMLParser @throws[Exception]
     }
   }
   private def getChildElementValue(parent: Element, elementName: String): String = {
-    val child: Element = parent.getElementsByTagName(elementName).item(0).asInstanceOf[Element]
-    return child.getTextContent
+    val child = parent.getElementsByTagName(elementName).item(0).asInstanceOf[Element]
+    child.getTextContent
   }
 }

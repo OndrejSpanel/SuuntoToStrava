@@ -18,6 +18,8 @@ object Util {
     }
     null
   }
+  def doubleFromString(str: String): Double = if (str == null) 0 else str.toDouble
+  def kiloCaloriesFromKilojoules(kj: Double): Int = (kj / 4184).toInt
 
   def isWindows: Boolean = {
     val OS = System.getProperty("os.name").toLowerCase

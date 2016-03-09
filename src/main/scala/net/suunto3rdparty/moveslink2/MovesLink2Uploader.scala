@@ -9,11 +9,9 @@ import org.apache.log4j.Logger
 object MovesLink2Uploader {private val log = Logger.getLogger(classOf[MovesLink2Uploader])}
 
 class MovesLink2Uploader(val dev: Boolean) {
-  devMode = dev
-  private var devMode: Boolean = false
   private def getDataFolder: File = {
     var folderName = "Moveslink2"
-    if (devMode) {
+    if (dev) {
       folderName = "Moveslink2-dev"
     }
     val suuntoHome = Util.getSuuntoHome
@@ -50,10 +48,10 @@ class MovesLink2Uploader(val dev: Boolean) {
         val parser = new XMLParser(file)
         if (parser.isParseCompleted) {
           //uploadMoveToNike(nikePlus, parser.getSuuntoMove)
-          file.renameTo(new File(uploadedMovesFolder, file.getName))
+          //file.renameTo(new File(uploadedMovesFolder, file.getName))
         }
         else {
-          file.renameTo(new File(notRunFolder, file.getName))
+          //file.renameTo(new File(notRunFolder, file.getName))
         }
       }
     }

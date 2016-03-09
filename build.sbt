@@ -11,3 +11,6 @@ libraryDependencies += "org.apache.logging.log4j" % "log4j-core" % log4jVersion
 libraryDependencies += "org.apache.logging.log4j" % "log4j-api" % log4jVersion
 
 libraryDependencies += "org.apache.logging.log4j" % "log4j-1.2-api" % log4jVersion
+
+libraryDependencies += "org.apache.commons" % "commons-math" % "2.1"
+
