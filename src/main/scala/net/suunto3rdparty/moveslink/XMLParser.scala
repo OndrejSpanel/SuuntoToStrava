@@ -1,17 +1,14 @@
-package com.oldhu.suunto2nike.suunto.moveslink
+package net.suunto3rdparty
+package moveslink
 
 import java.io.File
 import java.text.ParseException
-import java.util.ArrayList
-import java.util.regex.Matcher
-import java.util.regex.Pattern
-import javax.xml.parsers.DocumentBuilder
-import javax.xml.parsers.DocumentBuilderFactory
+import java.util.regex.{Matcher, Pattern}
+import javax.xml.parsers.{DocumentBuilder, DocumentBuilderFactory}
+
+import net.suunto3rdparty.SuuntoMove
 import org.apache.log4j.Logger
-import org.w3c.dom.Document
-import org.w3c.dom.Element
-import org.w3c.dom.NodeList
-import com.oldhu.suunto2nike.suunto.SuuntoMove
+import org.w3c.dom.{Document, Element, NodeList}
 
 object XMLParser {private val log: Logger = Logger.getLogger(classOf[XMLParser])}
 

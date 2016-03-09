@@ -1,25 +1,12 @@
-package com.oldhu.suunto2nike.suunto.moveslink2
+package net.suunto3rdparty
+package moveslink2
 
-import java.io.BufferedReader
-import java.io.ByteArrayInputStream
-import java.io.File
-import java.io.FileInputStream
-import java.io.FileReader
-import java.io.InputStream
-import java.text.ParseException
+import java.io._
 import java.text.SimpleDateFormat
-import java.util.ArrayList
-import javax.xml.parsers.DocumentBuilder
-import javax.xml.parsers.DocumentBuilderFactory
-import org.apache.commons.math.ArgumentOutsideDomainException
-import org.apache.commons.math.analysis.interpolation.SplineInterpolator
-import org.apache.commons.math.analysis.polynomials.PolynomialSplineFunction
+import javax.xml.parsers.{DocumentBuilder, DocumentBuilderFactory}
+
 import org.apache.log4j.Logger
-import org.w3c.dom.Document
-import org.w3c.dom.Element
-import org.w3c.dom.NodeList
-import com.oldhu.suunto2nike.Util
-import com.oldhu.suunto2nike.suunto.SuuntoMove
+import org.w3c.dom.{Document, Element, NodeList}
 
 object XMLParser {
   private val log: Logger = Logger.getLogger(classOf[XMLParser])
@@ -27,7 +14,7 @@ object XMLParser {
   private val PositionConstant: Double = 57.2957795131
 }
 
-class XMLParser @throws[Exception]
+class XMLParser
 (val xmlFile: File) {
   XMLParser.log.debug("Parsing " + xmlFile.getName)
   var doc: Document = null
@@ -42,24 +29,20 @@ class XMLParser @throws[Exception]
   }
   val samples: Element = doc.getElementsByTagName("Samples").item(0).asInstanceOf[Element]
   val rrData: String = Util.getChildElementValue(doc.getDocumentElement, "R-R", "Data")
-  val rr: util.ArrayList[Integer] = getRRArray(rrData)
+  val rr = getRRArray(rrData)
   if (pareseHeader(header)) {
     parseSamples(samples, rr)
   }
   private val suuntoMove: SuuntoMove = new SuuntoMove
   private var parseCompleted: Boolean = false
-  def isParseCompleted: Boolean = {
-    return parseCompleted
-  }
-  def getSuuntoMove: SuuntoMove = {
-    return suuntoMove
-  }
-  @throws[Exception]
+  def isParseCompleted = parseCompleted
+  def getSuuntoMove = suuntoMove
+
   private def getXMLDocument(xmlFile: File): Document = {
     val in: BufferedReader = new BufferedReader(new FileReader(xmlFile))
     val firstLine: String = in.readLine
     if (!firstLine.trim.toLowerCase == "<?xml version=\"1.0\" encoding=\"utf-8\"?>") {
-      in.close
+      in.close()
       throw new Exception("File format not correct: " + xmlFile.getName)
     }
     val sb: StringBuilder = new StringBuilder
@@ -70,20 +53,20 @@ class XMLParser @throws[Exception]
         sb.append(in.readLine)
       }
     }
-    in.close
+    in.close()
     sb.append("</data>")
     val stream: InputStream = new ByteArrayInputStream(sb.toString.getBytes("UTF-8"))
     val dbFactory: DocumentBuilderFactory = DocumentBuilderFactory.newInstance
     val dBuilder: DocumentBuilder = dbFactory.newDocumentBuilder
-    return dBuilder.parse(stream)
+    dBuilder.parse(stream)
   }
-  @throws[Exception]
+
   private def getSMLDocument(xmlFile: File): Document = {
     val dbFactory: DocumentBuilderFactory = DocumentBuilderFactory.newInstance
     val dBuilder: DocumentBuilder = dbFactory.newDocumentBuilder
-    return dBuilder.parse(new FileInputStream(xmlFile))
+    dBuilder.parse(new FileInputStream(xmlFile))
   }
-  @throws[ParseException]
+
   private def pareseHeader(header: Element): Boolean = {
     val moveType: Int = Util.getChildElementValue(header, "ActivityType").toInt
     if (moveType != 3 && moveType != 93 && moveType != 82) {
@@ -100,7 +83,7 @@ class XMLParser @throws[Exception]
     suuntoMove.setCalories(Util.kiloCaloriesFromKilojoules(Util.doubleFromString(Util.getChildElementValue(header, "Energy"))))
     val dateTime: String = Util.getChildElementValue(header, "DateTime")
     suuntoMove.setStartTime(XMLParser.dateFormat.parse(dateTime))
-    return true
+    true
   }
   private def getRRArray(rrData: String): util.ArrayList[Integer] = {
     if (rrData == null) return null
@@ -109,14 +92,14 @@ class XMLParser @throws[Exception]
     for (rr <- rrArray) {
       result.add(rr.toInt)
     }
-    return result
+    result
   }
-  @throws[ArgumentOutsideDomainException]
-  private def parseSamples(samples: Element, rr: util.ArrayList[Integer]): Boolean = {
+
+  private def parseSamples(samples: Element, rr: Array[Integer]): Boolean = {
     val sampleList: NodeList = samples.getElementsByTagName("Sample")
-    val timeList: util.ArrayList[Double] = new util.ArrayList[Double]
-    val hrList: util.ArrayList[Double] = new util.ArrayList[Double]
-    val distanceList: util.ArrayList[Double] = new util.ArrayList[Double]
+    val timeList = new util.ArrayList[Double]
+    val hrList = new util.ArrayList[Double]
+    val distanceList = new util.ArrayList[Double]
     var pausedTime: Double = 0.0
     var pauseStartTime: Double = 0.0
     var inPause: Boolean = true
@@ -180,25 +163,18 @@ class XMLParser @throws[Exception]
     populateHRArray(hrArray, hrList, timeArray)
     populateDistanceArray(distanceArray, distanceList)
     val timeToDistance: Nothing = generateTimeToDistanceSplineFunction(timeArray, distanceArray)
-    var timeToHR: Nothing = null
-    if (hasHR || rr == null) {
-      timeToHR = generateTimeToHRSplineFunction(timeArray, hrArray)
+    var timeToHR = if (hasHR || rr == null) {
+      generateTimeToHRSplineFunction(timeArray, hrArray)
     }
     else {
-      timeArray = new Array[Double](rr.size)
-      hrArray = new Array[Double](rr.size)
       var time: Double = 0
-      var i: Int = 0
-      while (i < rr.size) {
-        {
-          val value: Int = rr.get(i)
-          time += value
-          timeArray(i) = time
-          hrArray(i) = 60000.0 / value
-        }
-        ({i += 1; i})
+      val timeArray = for (value <- rr) yield {
+        time += value
+        time
       }
-      timeToHR = generateTimeToHRSplineFunction(timeArray, hrArray)
+      val hrArray = for (value <- rr) yield 60000.0 / value
+
+      generateTimeToHRSplineFunction(timeArray, hrArray)
     }
     var t: Double = 0
     while (t < suuntoMove.getDuration) {
@@ -211,54 +187,36 @@ class XMLParser @throws[Exception]
       }
     }
     parseCompleted = true
-    return true
+    true
   }
-  @throws[ArgumentOutsideDomainException]
+
   private def interpolate(spline: Nothing, x: Double): Double = {
     try {
       return spline.value(x)
     }
     catch {
-      case aode: Nothing => {
+      case aode: ArgumentOutsideDomainException => {
         val knots: Array[Double] = spline.getKnots
-        return spline.value(knots(if ((x < knots(0))) 0
-        else spline.getN - 1))
+        return spline.value(knots(if (x < knots(0)) 0 else spline.getN - 1))
       }
     }
   }
   private def generateTimeToDistanceSplineFunction(timeArray: Array[Double], distanceArray: Array[Double]): Nothing = {
     val interpolator: Nothing = new Nothing
-    return interpolator.interpolate(timeArray, distanceArray)
+    interpolator.interpolate(timeArray, distanceArray)
   }
-  private def populateDistanceArray(distanceArray: Array[Double], distanceList: util.ArrayList[Double]) {
-    var i: Int = 0
-    while (i < distanceList.size) {
-      {
-        distanceArray(i) = distanceList.get(i).doubleValue
-      }
-      ({i += 1; i})
-    }
+  private def populateDistanceArray(distanceArray: Array[Double], distanceList: Array[Double]) {
+    for (d <- distanceList) yield d
   }
-  private def populateHRArray(hrArray: Array[Double], hrList: util.ArrayList[Double], timeArray: Array[Double]) {
-    var i: Int = 0
-    while (i < hrList.size) {
-      {
-        hrArray(i) = hrList.get(i).doubleValue * 60
-      }
-      ({i += 1; i})
-    }
+
+  private def populateHRArray(hrArray: Array[Double], hrList: Array[Double], timeArray: Array[Double]) {
+    for (hr <- hrList) yield hr * 60
   }
-  private def populateTimeArray(timeArray: Array[Double], timeList: util.ArrayList[Double]) {
-    var i: Int = 0
-    while (i < timeList.size) {
-      {
-        timeArray(i) = timeList.get(i).doubleValue * 1000
-      }
-      ({i += 1; i})
-    }
+  private def populateTimeArray(timeArray: Array[Double], timeList: Array[Double]) {
+    for (time <- timeList) yield time * 1000
   }
   private def generateTimeToHRSplineFunction(timeArray: Array[Double], hrArray: Array[Double]): Nothing = {
     val interpolator: Nothing = new Nothing
-    return interpolator.interpolate(timeArray, hrArray)
+    interpolator.interpolate(timeArray, hrArray)
   }
 }
