@@ -13,22 +13,23 @@ object XMLParser {
   private val log = Logger.getLogger(XMLParser.getClass)
 
   def parseSamples(samples: Element): SuuntoMove = {
-    val suuntoMove = new SuuntoMove
     val distanceStr = getChildElementValue(samples, "Distance")
     val heartRateStr = getChildElementValue(samples, "HR")
     var currentSum: Int = 0
-    for (distance <- distanceStr.split(" ")) {
-      if (!distance.trim.isEmpty) {
-        currentSum += distance.toInt
-        suuntoMove.addDistanceSample(currentSum)
-      }
+    val distanceSamples = for {
+      distance <- distanceStr.split(" ")
+      if !distance.trim.isEmpty
+    } yield {
+      currentSum += distance.toInt
+      currentSum
     }
-    for (heartRate <- heartRateStr.split(" ")) {
-      if (!heartRate.trim.isEmpty) {
-        suuntoMove.addHeartRateSample(heartRate.toInt)
-      }
+    val heartRateSamples = for {
+      heartRate <- heartRateStr.split(" ")
+      if !heartRate.trim.isEmpty
+    } yield {
+      heartRate.toInt
     }
-    suuntoMove
+    new SuuntoMove(distanceSamples, heartRateSamples)
   }
 
   def parseHeader(header: Element, suuntoMove: SuuntoMove) = {

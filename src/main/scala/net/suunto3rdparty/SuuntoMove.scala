@@ -7,12 +7,15 @@ import scala.collection.mutable
 object SuuntoMove {val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")}
 
 case class SuuntoMove(var startTime: String = "", var duration: Int = 0, var calories: Int = 0, var distance: Int = 0) {
+  def this(distSamples: Seq[Int], hrSamples: Seq[Int]) = {
+    this()
+    distanceSamples ++= distSamples
+    heartRateSamples ++= hrSamples
+  }
+
   private var distanceSamples = mutable.ArrayBuffer[Int]()
   private var heartRateSamples = mutable.ArrayBuffer[Int]()
   private var trackPoints = mutable.ArrayBuffer[TrackPoint]()
-
-  def getDistanceSamples: Seq[Int] = distanceSamples
-  def getHeartRateSamples: Seq[Int] = heartRateSamples
 
   def addDistanceSample(distance: Int): Unit =  {
     distanceSamples += distance
@@ -21,15 +24,9 @@ case class SuuntoMove(var startTime: String = "", var duration: Int = 0, var cal
     heartRateSamples += heartRate
   }
   def addTrackPoint(lat: Double, lon: Double, ele: Int, time: String): Unit = {
-    trackPoints += new TrackPoint(lat, lon, ele, time)
+    trackPoints += TrackPoint(lat, lon, ele, time)
   }
-  def getTrackPoints: Seq[TrackPoint] = trackPoints
 
-  case class TrackPoint(latitude: Double, longitude: Double, elevation: Int, time: String) {
-    def getLatitude: String = latitude.toString
-    def getLongitude: String = longitude.toString
-    def getElevation: Int = elevation
-    def getTime: String = time
-  }
+  case class TrackPoint(latitude: Double, longitude: Double, elevation: Int, time: String)
 
 }
