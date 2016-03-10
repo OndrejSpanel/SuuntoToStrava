@@ -60,12 +60,12 @@ object XMLParser {
     for (rr <- rrArray) yield rr.toInt
   }
 
-  def parseHeader(header: Elem): Try[SuuntoMove.Header] = {
+  def parseHeader(header: Node): Try[SuuntoMove.Header] = {
     //val moveType = Util.getChildElementValue(header, "ActivityType").toInt
     Try {
       val distance = (header \ "Distance")(0).text.toInt
       if (distance == 0) {
-        return Failure(new UnsupportedOperationException("Zero distance"))
+        throw new UnsupportedOperationException("Zero distance")
       }
       val dateTime = (header \ "DateTime")(0).text
       SuuntoMove.Header(
@@ -86,7 +86,7 @@ object XMLParser {
       var pauseStartTime: Double = 0.0
       var inPause: Boolean = false
 
-      def trackPause(sample: Elem): Unit = {
+      def trackPause(sample: Node): Unit = {
         val pauseTry = sample \ "Events" \ "Pause" \ "State"
         for (pause <- pauseTry) {
           val time = (sample \ "Time").text.toDouble
@@ -106,8 +106,7 @@ object XMLParser {
 
     val trackPoints = {
       val paused = new PauseState
-      sampleList.flatMap { sampleItem =>
-        val sample = sampleItem.asInstanceOf[Elem]
+      sampleList.flatMap { sample =>
         paused.trackPause(sample)
         if (!paused.inPause) {
           // GPS Track POD samples contain no "SampleType" children
@@ -126,8 +125,7 @@ object XMLParser {
 
     val periodicSamples = {
       val paused = new PauseState
-      sampleList.flatMap { sampleItem =>
-        val sample = sampleItem.asInstanceOf[Elem]
+      sampleList.flatMap { sample =>
         paused.trackPause(sample)
         if (!paused.inPause) {
           val periodicSample = for {
@@ -199,7 +197,7 @@ object XMLParser {
     val rrData = Try((doc \ "R-R" \ "Data")(0))
     val rr = rrData.map(node => getRRArray(node.text))
     val moves = for {
-      h <- parseHeader(header.asInstanceOf[Elem])
+      h <- parseHeader(header)
     } yield {
       parseSamples(h, samples, rr.getOrElse(Seq()))
     }
