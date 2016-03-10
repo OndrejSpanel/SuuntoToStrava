@@ -4,10 +4,6 @@ import moveslink.MovesLinkUploader
 import moveslink2.MovesLink2Uploader
 import org.apache.log4j.Logger
 import java.io.File
-import javastrava.api.v3.auth.impl.retrofit.AuthorisationServiceImpl
-import javastrava.api.v3.rest.API
-import javastrava.api.v3.service.Strava
-import javastrava.api.v3.auth.model.Token
 
 import scalaj.http.Http
 
@@ -52,16 +48,6 @@ object StravaAccess extends App {
     val code = lines.next
     (secret, token, code)
   } finally source.close()
-
-  /*
-  val auth = API.authorisationInstance()
-  val response = auth.tokenExchange(appId, clientSecret, code)
-  val token = new Token(response)
-
-  val api = new API(token)
-
-  val athlete = api.getAthlete(11115118)
-  */
 
   val request = Http("https://www.strava.com/api/v3/oauth/token").postData(s"client_id=$appId&client_secret=$clientSecret&code=$code")
 

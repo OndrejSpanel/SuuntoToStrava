@@ -17,5 +17,3 @@ libraryDependencies += "org.apache.commons" % "commons-math" % "2.1"
 libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.3"
 
 libraryDependencies += "org.scalaj" %% "scalaj-http" % "2.2.1"
-
-libraryDependencies += "com.github.danshannon" % "javastrava-api" % "1.0.1"
