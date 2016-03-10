@@ -4,6 +4,7 @@ import moveslink.MovesLinkUploader
 import moveslink2.MovesLink2Uploader
 import org.apache.log4j.Logger
 
+import java.io.File
 
 object Main extends App {
   val log = Logger.getLogger(classOf[App])
@@ -31,4 +32,14 @@ object Main extends App {
   uploadMovesLink()
   uploadMovesLink2()
 
+}
+
+object StravaAccess extends App {
+  val home = new File(Util.getSuuntoHome, "Moveslink")
+  val tokenFile = new File(home, "strava.id")
+
+  val source = scala.io.Source.fromFile(tokenFile)
+  val token = try source.getLines().mkString finally source.close()
+
+  println(token)
 }
