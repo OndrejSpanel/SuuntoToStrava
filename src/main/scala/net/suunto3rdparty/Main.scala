@@ -36,6 +36,41 @@ object Main extends App {
 
 }
 
+class StravaAPI(appId: Int, clientSecret: String, code: String) {
+  val stravaRoot = "https://www.strava.com/api/v3/"
+
+  lazy val authString: Option[String] = {
+    val request = Http(stravaRoot + "oauth/token").postData(s"client_id=$appId&client_secret=$clientSecret&code=$code")
+
+    val tokenString = request.asString.body
+
+    val resultJson = JSON.parseFull(tokenString)
+
+    class CC[T] {
+      def unapply(a: Option[Any]): Option[T] = if (a.isEmpty) {
+        None
+      } else {
+        Some(a.get.asInstanceOf[T])
+      }
+    }
+    object M extends CC[Map[String, Any]]
+    object L extends CC[List[Any]]
+    object S extends CC[String]
+    object D extends CC[Double]
+    object B extends CC[Boolean]
+
+    Option(resultJson).flatMap { case M(map) =>
+      map.get("access_token") match {
+        case S(accessToken) =>
+          Some("Bearer " + accessToken)
+        case _ =>
+          None
+      }
+    }
+  }
+
+}
+
 object StravaAccess extends App {
   val home = new File(Util.getSuuntoHome, "Moveslink")
   val appId = 8138
@@ -50,38 +85,13 @@ object StravaAccess extends App {
     (secret, token, code)
   } finally source.close()
 
-  val stravaRoot = "https://www.strava.com/api/v3/"
-  val request = Http(stravaRoot + "oauth/token").postData(s"client_id=$appId&client_secret=$clientSecret&code=$code")
+  val api = new StravaAPI(appId, clientSecret, code)
 
-  val tokenString = request.asString.body
+  for (authString <- api.authString) {
+    val athleteRequest = Http(api.stravaRoot + "athlete").header("Authorization", authString)
 
-  val resultJson = JSON.parseFull(tokenString)
+    val athleteString = athleteRequest.asString.body
 
-  class CC[T] {
-    def unapply(a:Option[Any]): Option[T] = if (a.isEmpty) {
-      None
-    } else {
-      Some(a.get.asInstanceOf[T])
-    }
-  }
-  object M extends CC[Map[String, Any]]
-  object L extends CC[List[Any]]
-  object S extends CC[String]
-  object D extends CC[Double]
-  object B extends CC[Boolean]
-
-  val at = for {
-    M(map) <- List(resultJson)
-  } {
-    map.get("access_token") match {
-      case S(accessToken) =>
-        val authString = "Bearer " + accessToken
-
-        val athleteRequest = Http(stravaRoot + "athlete").header("Authorization", authString)
-
-        val athleteString = athleteRequest.asString.body
-
-        println(athleteString)
-    }
+    println(athleteString)
   }
 }
