@@ -3,16 +3,14 @@ package moveslink2
 
 import java.io._
 import java.text.SimpleDateFormat
-import javax.xml.parsers.DocumentBuilderFactory
 
-import NodeListOps._
 import org.apache.commons.math.ArgumentOutsideDomainException
 import org.apache.commons.math.analysis.interpolation.SplineInterpolator
 import org.apache.commons.math.analysis.polynomials.PolynomialSplineFunction
 import org.apache.log4j.Logger
-import org.w3c.dom.{Document, Element}
 
 import scala.util._
+import scala.xml._
 
 object XMLParser {
   private val log = Logger.getLogger(XMLParser.getClass)
@@ -48,31 +46,13 @@ object XMLParser {
     interpolator.interpolate(timeArray.toArray, hrArray.toArray)
   }
 
-  def getXMLDocument(xmlFile: File): Document = {
-    val in = new BufferedReader(new FileReader(xmlFile))
-    val firstLine = in.readLine
-    if (firstLine.trim.toLowerCase != "<?xml version=\"1.0\" encoding=\"utf-8\"?>") {
-      in.close()
-      throw new Exception("File format not correct: " + xmlFile.getName)
-    }
-    val sb = new StringBuilder
-    sb.append(firstLine)
-    sb.append("<data>")
-    while (in.ready) {
-      sb.append(in.readLine)
-    }
-    in.close()
-    sb.append("</data>")
-    val stream = new ByteArrayInputStream(sb.toString.getBytes("UTF-8"))
-    val dbFactory = DocumentBuilderFactory.newInstance
-    val dBuilder = dbFactory.newDocumentBuilder
-    dBuilder.parse(stream)
+  def getXMLDocument(xmlFile: File): Elem = {
+    XML.loadFile(xmlFile)
   }
 
-  def getSMLDocument(xmlFile: File): Document = {
-    val dbFactory = DocumentBuilderFactory.newInstance
-    val dBuilder = dbFactory.newDocumentBuilder
-    dBuilder.parse(new FileInputStream(xmlFile))
+  def getSMLDocument(xmlFile: File): NodeSeq = {
+    val doc = XML.loadFile(xmlFile)
+    doc \ "DeviceLog"
   }
 
   def getRRArray(rrData: String): Seq[Int] = {
@@ -80,42 +60,42 @@ object XMLParser {
     for (rr <- rrArray) yield rr.toInt
   }
 
-  def parseHeader(header: Element): Try[SuuntoMove.Header] = {
+  def parseHeader(header: Elem): Try[SuuntoMove.Header] = {
     //val moveType = Util.getChildElementValue(header, "ActivityType").toInt
     Try {
-      val distance = Util.getChildElementValue(header, "Distance").get.toInt
+      val distance = (header \ "Distance")(0).text.toInt
       if (distance == 0) {
         return Failure(new UnsupportedOperationException("Zero distance"))
       }
-      val dateTime = Util.getChildElementValue(header, "DateTime").get
+      val dateTime = (header \ "DateTime")(0).text
       SuuntoMove.Header(
         startTime = SuuntoMove.dateFormat.format(XMLParser.dateFormat.parse(dateTime)),
-        duration = (Util.doubleFromString(Util.getChildElementValue(header, "Duration").get).doubleValue * 1000).toInt,
-        Util.getChildElementValue(header, "Energy").map(_.toDouble).map(Util.kiloCaloriesFromKilojoules).getOrElse(0),
+        duration = ((header \ "Duration")(0).text.toDouble * 1000).toInt,
+        calories = Try(Util.kiloCaloriesFromKilojoules((header \ "Energy")(0).text.toDouble)).getOrElse(0),
         distance = distance
       )
     }
   }
 
 
-  def parseSamples(header: SuuntoMove.Header, samples: Element, rr: Seq[Int]): SuuntoMove = {
-    val sampleList = samples.getElementsByTagName("Sample")
+  def parseSamples(header: SuuntoMove.Header, samples: NodeSeq, rr: Seq[Int]): SuuntoMove = {
+    val sampleList = samples \ "Sample"
 
     class PauseState {
       var pausedTime: Double = 0.0
       var pauseStartTime: Double = 0.0
       var inPause: Boolean = false
 
-      def trackPause(sample: Element): Unit = {
-        val pauseTry = Util.getChildElementValue(sample, "Events", "Pause", "State")
+      def trackPause(sample: Elem): Unit = {
+        val pauseTry = sample \ "Events" \ "Pause" \ "State"
         for (pause <- pauseTry) {
-          val time = Util.getChildElementValue(sample, "Time").map(_.toDouble).getOrElse(0.0)
-          if (pause.equalsIgnoreCase("false")) {
+          val time = (sample \ "Time").text.toDouble
+          if (pause(0).text.equalsIgnoreCase("false")) {
             if (inPause) {
               pausedTime += time - pauseStartTime
               inPause = false
             }
-          } else if (pause.equalsIgnoreCase("true")) {
+          } else if (pause(0).text.equalsIgnoreCase("true")) {
             pauseStartTime = time
             inPause = true
           }
@@ -124,19 +104,18 @@ object XMLParser {
     }
 
 
-    val samplesSeq = sampleList.toSeq
     val trackPoints = {
       val paused = new PauseState
-      samplesSeq.flatMap { sampleItem =>
-        val sample = sampleItem.asInstanceOf[Element]
+      sampleList.flatMap { sampleItem =>
+        val sample = sampleItem.asInstanceOf[Elem]
         paused.trackPause(sample)
         if (!paused.inPause) {
           // GPS Track POD samples contain no "SampleType" children
           val parseSample = Try {
-            val lat = Util.getChildElementValue(sample, "Latitude").get.toDouble * XMLParser.PositionConstant
-            val lon = Util.getChildElementValue(sample, "Longitude").get.toDouble * XMLParser.PositionConstant
-            val elevation = Util.getChildElementValue(sample, "GPSAltitude").map(_.toInt)
-            val utc = Util.getChildElementValue(sample, "UTC").get
+            val lat = (sample \ "Latitude")(0).text.toDouble * XMLParser.PositionConstant
+            val lon = (sample \ "Longitude")(0).text.toDouble * XMLParser.PositionConstant
+            val elevation = Try((sample \ "GPSAltitude")(0).text.toInt).toOption
+            val utc = (sample \ "UTC")(0).text
             SuuntoMove.TrackPoint(lat, lon, elevation, utc)
           }
 
@@ -147,24 +126,24 @@ object XMLParser {
 
     val periodicSamples = {
       val paused = new PauseState
-      samplesSeq.flatMap { sampleItem =>
-        val sample = sampleItem.asInstanceOf[Element]
+      sampleList.flatMap { sampleItem =>
+        val sample = sampleItem.asInstanceOf[Elem]
         paused.trackPause(sample)
         if (!paused.inPause) {
           val periodicSample = for {
-            sampleType <- Util.getChildElementValue(sample, "SampleType") if sampleType.equalsIgnoreCase("periodic")
-            distanceStr <- Util.getChildElementValue(sample, "Distance")
-            timeStr <- Util.getChildElementValue(sample, "Time")
-            time = Util.doubleFromString(timeStr) - paused.pausedTime
+            sampleType <- Try((sample \ "SampleType")(0).text) if sampleType.equalsIgnoreCase("periodic")
+            distanceStr <- Try((sample \ "Distance")(0).text)
+            timeStr <- Try((sample \ "Time")(0).text)
+            time = timeStr.toDouble - paused.pausedTime
           } yield {
-            val hrTry = Util.getChildElementValue(sample, "HR")
-            val elevationTry = Util.getChildElementValue(sample, "Altitude")
-            val hr = hrTry.map(_.toDouble)
-            val elevation = elevationTry.map(_.toInt)
+            val hrTry = Try((sample \ "HR")(0).text)
+            val elevationTry = Try((sample \ "Altitude")(0).text)
+            val hr = hrTry.map(_.toDouble).toOption
+            val elevation = elevationTry.map(_.toInt).toOption
             // TODO: may contain UTC directly - prefer it
             (time, distanceStr.toDouble, hr, elevation)
           }
-          periodicSample
+          periodicSample.toOption
         } else None
       }
     }
@@ -209,18 +188,19 @@ object XMLParser {
 
     val (doc, header) = if (xmlFile.getName.endsWith(".xml")) {
       val d = getXMLDocument(xmlFile)
-      d -> d.getElementsByTagName("header").item(0).asInstanceOf[Element]
-    }
-    else if (xmlFile.getName.endsWith(".sml")) {
+      d -> (d \ "Header")(0)
+    } else if (xmlFile.getName.endsWith(".sml")) {
       val d = getSMLDocument(xmlFile)
-      d -> d.getElementsByTagName("Header").item(0).asInstanceOf[Element]
-    }
-    else throw new UnsupportedOperationException(s"Unknown data format ${xmlFile.getName}")
+      val dh = d \ "Header"
+      d -> dh(0)
+    } else throw new UnsupportedOperationException(s"Unknown data format ${xmlFile.getName}")
 
-    val samples = doc.getElementsByTagName("Samples").item(0).asInstanceOf[Element]
-    val rrData = Util.getChildElementValue(doc.getDocumentElement, "R-R", "Data")
-    val rr = rrData.map(getRRArray)
-    val moves = for (h <- parseHeader(header)) yield {
+    val samples = doc \ "Samples"
+    val rrData = Try((doc \ "R-R" \ "Data")(0))
+    val rr = rrData.map(node => getRRArray(node.text))
+    val moves = for {
+      h <- parseHeader(header.asInstanceOf[Elem])
+    } yield {
       parseSamples(h, samples, rr.getOrElse(Seq()))
     }
 
