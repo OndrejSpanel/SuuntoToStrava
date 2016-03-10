@@ -2,8 +2,6 @@ package net.suunto3rdparty
 
 import java.text.SimpleDateFormat
 
-import scala.collection.mutable
-
 object SuuntoMove {
   val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 
@@ -20,8 +18,8 @@ case class SuuntoMove(var startTime: String = "", var duration: Int = 0, var cal
 
   def this(distSamples: Seq[Int], hrSamples: Seq[Int]) = {
     this()
-    distanceSamples ++= distSamples
-    heartRateSamples ++= hrSamples
+    distanceSamples = distSamples
+    heartRateSamples = hrSamples
   }
 
   def this(header: SuuntoMove.Header, distSamples: Seq[Int], hrSamples: Seq[Int], trackPointSamples: Seq[SuuntoMove.TrackPoint]) = {
