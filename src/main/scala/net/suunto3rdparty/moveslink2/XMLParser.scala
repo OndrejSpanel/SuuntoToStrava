@@ -12,7 +12,7 @@ import org.apache.commons.math.analysis.polynomials.PolynomialSplineFunction
 import org.apache.log4j.Logger
 import org.w3c.dom.{Document, Element}
 
-import scala.util.{Failure, Success, Try}
+import scala.util._
 
 object XMLParser {
   private val log = Logger.getLogger(XMLParser.getClass)
@@ -82,17 +82,19 @@ object XMLParser {
 
   def parseHeader(header: Element): Try[SuuntoMove.Header] = {
     //val moveType = Util.getChildElementValue(header, "ActivityType").toInt
-    val distance = Util.getChildElementValue(header, "Distance").toInt
-    if (distance == 0) {
-      return Failure(new UnsupportedOperationException("Zero distance"))
+    Try {
+      val distance = Util.getChildElementValue(header, "Distance").get.toInt
+      if (distance == 0) {
+        return Failure(new UnsupportedOperationException("Zero distance"))
+      }
+      val dateTime = Util.getChildElementValue(header, "DateTime").get
+      SuuntoMove.Header(
+        startTime = SuuntoMove.dateFormat.format(XMLParser.dateFormat.parse(dateTime)),
+        duration = (Util.doubleFromString(Util.getChildElementValue(header, "Duration").get).doubleValue * 1000).toInt,
+        Util.getChildElementValue(header, "Energy").map(_.toDouble).map(Util.kiloCaloriesFromKilojoules).getOrElse(0),
+        distance = distance
+      )
     }
-    val dateTime = Util.getChildElementValue(header, "DateTime")
-    Success(SuuntoMove.Header(
-      startTime = SuuntoMove.dateFormat.format(XMLParser.dateFormat.parse(dateTime)),
-      duration = (Util.doubleFromString(Util.getChildElementValue(header, "Duration")).doubleValue * 1000).toInt,
-      Try(Util.getChildElementValue(header, "Energy")).map(_.toDouble).map(Util.kiloCaloriesFromKilojoules).getOrElse(0),
-      distance = distance
-    ))
   }
 
 
@@ -105,9 +107,9 @@ object XMLParser {
       var inPause: Boolean = false
 
       def trackPause(sample: Element): Unit = {
-        val pauseTry = Try(Util.getChildElementValue(sample, "Events", "Pause", "State"))
+        val pauseTry = Util.getChildElementValue(sample, "Events", "Pause", "State")
         for (pause <- pauseTry) {
-          val time = Util.doubleFromString(Util.getChildElementValue(sample, "Time"))
+          val time = Util.getChildElementValue(sample, "Time").map(_.toDouble).getOrElse(0.0)
           if (pause.equalsIgnoreCase("false")) {
             if (inPause) {
               pausedTime += time - pauseStartTime
@@ -131,10 +133,10 @@ object XMLParser {
         if (!paused.inPause) {
           // GPS Track POD samples contain no "SampleType" children
           val parseSample = Try {
-            val lat = Util.getChildElementValue(sample, "Latitude").toDouble * XMLParser.PositionConstant
-            val lon = Util.getChildElementValue(sample, "Longitude").toDouble * XMLParser.PositionConstant
-            val elevation = Try(Util.getChildElementValue(sample, "GPSAltitude")).map(_.toInt).toOption
-            val utc = Util.getChildElementValue(sample, "UTC")
+            val lat = Util.getChildElementValue(sample, "Latitude").get.toDouble * XMLParser.PositionConstant
+            val lon = Util.getChildElementValue(sample, "Longitude").get.toDouble * XMLParser.PositionConstant
+            val elevation = Util.getChildElementValue(sample, "GPSAltitude").map(_.toInt)
+            val utc = Util.getChildElementValue(sample, "UTC").get
             SuuntoMove.TrackPoint(lat, lon, elevation, utc)
           }
 
@@ -150,19 +152,19 @@ object XMLParser {
         paused.trackPause(sample)
         if (!paused.inPause) {
           val periodicSample = for {
-            sampleType <- Try(Util.getChildElementValue(sample, "SampleType")) if sampleType.equalsIgnoreCase("periodic")
-            distanceStr <- Try(Util.getChildElementValue(sample, "Distance"))
-            timeStr <- Try(Util.getChildElementValue(sample, "Time"))
+            sampleType <- Util.getChildElementValue(sample, "SampleType") if sampleType.equalsIgnoreCase("periodic")
+            distanceStr <- Util.getChildElementValue(sample, "Distance")
+            timeStr <- Util.getChildElementValue(sample, "Time")
             time = Util.doubleFromString(timeStr) - paused.pausedTime
           } yield {
-            val hrTry = Try(Util.getChildElementValue(sample, "HR"))
-            val elevationTry = Try(Util.getChildElementValue(sample, "Altitude"))
-            val hr = hrTry.toOption.map(_.toDouble)
-            val elevation = elevationTry.map(_.toInt).toOption
+            val hrTry = Util.getChildElementValue(sample, "HR")
+            val elevationTry = Util.getChildElementValue(sample, "Altitude")
+            val hr = hrTry.map(_.toDouble)
+            val elevation = elevationTry.map(_.toInt)
             // TODO: may contain UTC directly - prefer it
             (time, distanceStr.toDouble, hr, elevation)
           }
-          periodicSample.toOption
+          periodicSample
         } else None
       }
     }
@@ -216,7 +218,7 @@ object XMLParser {
     else throw new UnsupportedOperationException(s"Unknown data format ${xmlFile.getName}")
 
     val samples = doc.getElementsByTagName("Samples").item(0).asInstanceOf[Element]
-    val rrData = Try(Util.getChildElementValue(doc.getDocumentElement, "R-R", "Data"))
+    val rrData = Util.getChildElementValue(doc.getDocumentElement, "R-R", "Data")
     val rr = rrData.map(getRRArray)
     val moves = for (h <- parseHeader(header)) yield {
       parseSamples(h, samples, rr.getOrElse(Seq()))

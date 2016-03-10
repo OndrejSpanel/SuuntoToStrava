@@ -7,18 +7,18 @@ import org.w3c.dom.Element
 import scala.util.control.NoStackTrace
 
 object Util {
-  def getChildElementValue(parent0: Element, elementNames: String*): String = {
+  def getChildElementValue(parent0: Element, elementNames: String*): Option[String] = {
     var parent = parent0
     for ((elementName, i) <- elementNames.zipWithIndex) {
       val nodeList = parent.getElementsByTagName(elementName)
-      if (nodeList.getLength != 1) throw new NoSuchElementException(s"Element $elementNames not found") with NoStackTrace
+      if (nodeList.getLength != 1) return None
       val child = nodeList.item(0).asInstanceOf[Element]
       if (i == elementNames.length - 1) {
-        return child.getTextContent
+        return Some(child.getTextContent)
       }
       parent = child
     }
-    throw new NoSuchElementException(s"Element $elementNames not found") with NoStackTrace
+    None
   }
   def doubleFromString(str: String): Double = if (str == null) 0 else str.toDouble
   def kiloCaloriesFromKilojoules(kj: Double): Int = (kj / 4184).toInt
