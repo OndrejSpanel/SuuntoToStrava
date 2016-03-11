@@ -1,15 +1,15 @@
 package net.suunto3rdparty
 
-import java.text.SimpleDateFormat
+import java.time.ZonedDateTime
 
 object SuuntoMove {
-  val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-
-  case class Header(startTime: String = "", duration: Int = 0, calories: Int = 0, distance: Int = 0)
+  case class Header(startTime: ZonedDateTime = ZonedDateTime.now, duration: Int = 0, calories: Int = 0, distance: Int = 0)
   case class TrackPoint(latitude: Double, longitude: Double, elevation: Option[Int], time: String)
 }
 
-case class SuuntoMove(var startTime: String = "", var duration: Int = 0, var calories: Int = 0, var distance: Int = 0) {
+case class SuuntoMove(var startTime: ZonedDateTime = ZonedDateTime.now, var duration: Int = 0, var calories: Int = 0, var distance: Int = 0) {
+  def endTime = ???
+
   import SuuntoMove._
 
   private var distanceSamples = Seq[Int]()
@@ -32,4 +32,21 @@ case class SuuntoMove(var startTime: String = "", var duration: Int = 0, var cal
   def this(header: SuuntoMove.Header, distSamples: Seq[Int], hrSamples: Seq[Int]) = {
     this(header, distSamples, hrSamples, Seq())
   }
+
+  /**
+    * Concatenate two moves - non-overlapping (or mostly non-overlapping)
+    */
+  def concat(that: SuuntoMove): SuuntoMove = {
+    ???
+  }
+
+  /**
+    * this contains move with HR data (Quest)
+    *
+    * @param that move with GPS data (GPS Track Pod)
+    * */
+  def mergeGPS(that: SuuntoMove): SuuntoMove = {
+    ???
+  }
 }
+

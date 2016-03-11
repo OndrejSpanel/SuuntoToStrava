@@ -2,7 +2,8 @@ package net.suunto3rdparty
 package moveslink2
 
 import java.io._
-import java.text.SimpleDateFormat
+import java.time.{LocalDate, ZonedDateTime}
+import java.time.format.DateTimeFormatter
 
 import org.apache.commons.math.ArgumentOutsideDomainException
 import org.apache.commons.math.analysis.interpolation.SplineInterpolator
@@ -14,7 +15,6 @@ import scala.xml._
 
 object XMLParser {
   private val log = Logger.getLogger(XMLParser.getClass)
-  private val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss")
   private val PositionConstant = 57.2957795131
 
   def interpolate(spline: PolynomialSplineFunction, x: Double): Double = {
@@ -69,7 +69,7 @@ object XMLParser {
       }
       val dateTime = (header \ "DateTime")(0).text
       SuuntoMove.Header(
-        startTime = SuuntoMove.dateFormat.format(XMLParser.dateFormat.parse(dateTime)),
+        startTime = ZonedDateTime.parse(dateTime, Util.dateFormat),
         duration = ((header \ "Duration")(0).text.toDouble * 1000).toInt,
         calories = Try(Util.kiloCaloriesFromKilojoules((header \ "Energy")(0).text.toDouble)).getOrElse(0),
         distance = distance

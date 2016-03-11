@@ -2,9 +2,10 @@ package net.suunto3rdparty
 package moveslink
 
 import java.io.File
+import java.time.ZonedDateTime
 import java.util.regex.Pattern
-import scala.xml._
 
+import scala.xml._
 import org.apache.log4j.Logger
 
 object XMLParser {
@@ -35,7 +36,9 @@ object XMLParser {
 
     suuntoMove.calories = (header \ "Calories")(0).text.toInt
     suuntoMove.distance = (header \ "Distance")(0).text.toInt
-    suuntoMove.startTime = (header \ "Time")(0).text
+
+    val timeText = (header \ "Time") (0).text
+    suuntoMove.startTime = ZonedDateTime.parse(timeText, Util.dateFormat)
     val durationStr = (header \ "Duration")(0).text
     val matcher = durationPattern.matcher(durationStr)
     if (matcher.matches) {
