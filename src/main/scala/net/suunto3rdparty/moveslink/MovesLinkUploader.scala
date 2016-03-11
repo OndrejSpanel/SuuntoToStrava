@@ -5,13 +5,9 @@ import java.io.File
 
 import org.apache.log4j.Logger
 
-object MovesLinkUploader extends MovesLinkUploader {
-  private val log = Logger.getLogger(classOf[MovesLinkUploader])
+object MovesLinkUploader {
+  private val log = Logger.getLogger(getClass)
 
-  def getInstance: MovesLinkUploader = this
-}
-
-class MovesLinkUploader {
   private def getDataFolder: File = {
     val suuntoHome = Util.getSuuntoHome
     new File(suuntoHome, "Moveslink")
@@ -33,13 +29,13 @@ class MovesLinkUploader {
     for (file <- files) {
       val fileName = file.getName.toLowerCase
       if (fileName.startsWith("quest_") && fileName.endsWith(".xml")) {
-        MovesLinkUploader.log.info("Analyzing " + fileName)
+        log.info("Analyzing " + fileName)
         val moves = XMLParser.parse(file)
         if (moves.isEmpty) {
-          MovesLinkUploader.log.info("There's no moves in " + file.getName)
+          log.info("There's no moves in " + file.getName)
           //file.renameTo(new File(noMovesFolder, file.getName))
         } else {
-          MovesLinkUploader.log.info("Moving file into pending folder: " + file.getName)
+          log.info("Moving file into pending folder: " + file.getName)
           //file.renameTo(new File(pendingMovesFolder, file.getName))
         }
       }
@@ -49,11 +45,11 @@ class MovesLinkUploader {
   def checkIfEnvOkay: Boolean = {
     val folder = getDataFolder
     if (!folder.exists) {
-      MovesLinkUploader.log.info("Cannot find MovesLink data folder at " + folder.getAbsolutePath)
+      log.info("Cannot find MovesLink data folder at " + folder.getAbsolutePath)
       return false
     }
     if (!folder.canWrite) {
-      MovesLinkUploader.log.error("Cannot write to moves link data folder at " + folder.getAbsolutePath)
+      log.error("Cannot write to moves link data folder at " + folder.getAbsolutePath)
       return false
     }
     true

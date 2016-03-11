@@ -13,7 +13,7 @@ object Main extends App {
 
   private def uploadMovesLink() {
     log.info("Uploading MovesLink ...")
-    val mlf = new MovesLinkUploader
+    val mlf = MovesLinkUploader
     if (!mlf.checkIfEnvOkay) {
       return
     }
@@ -23,7 +23,7 @@ object Main extends App {
 
   private def uploadMovesLink2() {
     log.info("Uploading MovesLink2 ...")
-    val ml2f = new MovesLink2Uploader
+    val ml2f = MovesLink2Uploader
     if (!ml2f.checkIfEnvOkay) {
       return
     }

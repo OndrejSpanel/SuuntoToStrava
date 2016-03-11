@@ -5,10 +5,9 @@ import java.io.File
 
 import org.apache.log4j.Logger
 
+object MovesLink2Uploader {
+  private val log = Logger.getLogger(getClass)
 
-object MovesLink2Uploader {private val log = Logger.getLogger(classOf[MovesLink2Uploader])}
-
-class MovesLink2Uploader {
   private def getDataFolder: File = {
     val folderName = "Moveslink2"
     val suuntoHome = Util.getSuuntoHome
