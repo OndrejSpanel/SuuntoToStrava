@@ -14,3 +14,5 @@ libraryDependencies += "org.apache.logging.log4j" % "log4j-1.2-api" % log4jVersi
 
 libraryDependencies += "org.apache.commons" % "commons-math" % "2.1"
 
+libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.3"
+
