@@ -22,12 +22,12 @@ object MovesLinkUploader {
         log.info("Analyzing " + fileName)
         val moves = XMLParser.parse(file)
         moves.foreach{ move =>
-          println(s"Quest HR: ${move.startTime}..${move.endTime}")
+          println(s"Quest HR: ${move.toLog}")
           // upload each move separately
           val gpsData = index.listOverlapping(move)
           if (gpsData.nonEmpty) {
             val merged = gpsData.reduce(_ mergeGPS _)
-            println(s"  GPS found: ${merged.startTime}..${merged.endTime}")
+            println(s"  GPS found: ${merged.toLog}")
           }
           // TODO: handle GPS data with no HR - upload them separately
         }

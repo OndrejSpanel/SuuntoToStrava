@@ -2,6 +2,7 @@ package net.suunto3rdparty
 package moveslink2
 
 import java.io.File
+import Util._
 
 import org.apache.log4j.Logger
 
@@ -45,7 +46,7 @@ object MovesLink2Uploader {
         val parser = XMLParser.parse(file)
         parser.foreach { move =>
           index.add(move)
-          println(s"GPS: ${move.startTime}..${move.endTime}")
+          println(s"GPS: ${move.toLog}")
         }
       }
     }
