@@ -2,12 +2,11 @@ package net.suunto3rdparty
 
 import java.io.File
 import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 
 object Util {
 
   implicit class ZonedDateTimeOps(val time: ZonedDateTime) extends AnyVal with Ordered[ZonedDateTimeOps] {
-    override def compare(that: ZonedDateTimeOps): Int = time.compareTo(that)
+    override def compare(that: ZonedDateTimeOps): Int = time.compareTo(that.time)
   }
 
   def kiloCaloriesFromKilojoules(kj: Double): Int = (kj / 4184).toInt
