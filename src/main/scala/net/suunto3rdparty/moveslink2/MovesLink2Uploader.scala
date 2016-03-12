@@ -30,7 +30,8 @@ object MovesLink2Uploader {
     true
   }
 
-  def uploadXMLFiles(): Unit = {
+  def readXMLFiles(): MoveIndex = {
+    val index = new MoveIndex
     val folder = getDataFolder
     //val notRunFolder = new File(folder, "NotRun")
     //val uploadedMovesFolder = new File(folder, "Uploaded")
@@ -42,14 +43,12 @@ object MovesLink2Uploader {
       if ((fileName.startsWith("log-") && fileName.endsWith(".xml")) || fileName.endsWith(".sml")) {
         MovesLink2Uploader.log.info("Analyzing " + fileName)
         val parser = XMLParser.parse(file)
-        if (parser.isSuccess) {
-          //uploadMoveToNike(nikePlus, parser.getSuuntoMove)
-          //file.renameTo(new File(uploadedMovesFolder, file.getName))
-        }
-        else {
-          //file.renameTo(new File(notRunFolder, file.getName))
+        parser.foreach { move =>
+          index.add(move)
+          println(s"GPS: ${move.startTime}..${move.endTime}")
         }
       }
     }
+    index
   }
 }

@@ -11,28 +11,19 @@ import scala.util.parsing.json.JSON
 object Main extends App {
   val log = Logger.getLogger(classOf[App])
 
-  private def uploadMovesLink() {
-    log.info("Uploading MovesLink ...")
-    val mlf = MovesLinkUploader
-    if (!mlf.checkIfEnvOkay) {
-      return
-    }
-    mlf.uploadXMLFiles()
-    log.info("Upload MovesLink done.")
-  }
 
-  private def uploadMovesLink2() {
-    log.info("Uploading MovesLink2 ...")
-    val ml2f = MovesLink2Uploader
-    if (!ml2f.checkIfEnvOkay) {
-      return
-    }
-    ml2f.uploadXMLFiles()
-    log.info("Upload MovesLink2 done.")
-  }
+  val mlf = MovesLinkUploader
+  val ml2f = MovesLink2Uploader
 
-  uploadMovesLink()
-  uploadMovesLink2()
+  log.info("Reading MovesLink2 ...")
+  if (!ml2f.checkIfEnvOkay || !mlf.checkIfEnvOkay) {
+    throw new UnsupportedOperationException()
+  }
+  val index = ml2f.readXMLFiles()
+  log.info("Reading MovesLink2 done.")
+  log.info("Reading MovesLink ...")
+  mlf.uploadXMLFiles(index)
+  log.info("Upload MovesLink done.")
 
 }
 

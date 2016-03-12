@@ -13,30 +13,23 @@ object MovesLinkUploader {
     new File(suuntoHome, "Moveslink")
   }
 
-  def uploadXMLFiles(): Unit = {
+  def uploadXMLFiles(index: MoveIndex): Unit = {
     val folder = getDataFolder
-    /*
-    val noMovesFolder: File = new File(folder, "NoMoves")
-    val duplicateMovesFolder: File = new File(folder, "Duplicates")
-    val pendingMovesFolder: File = new File(folder, "Pending")
-    val uploadedMovesFolder: File = new File(folder, "Uploaded")
-    noMovesFolder.mkdir
-    duplicateMovesFolder.mkdir
-    pendingMovesFolder.mkdir
-    uploadedMovesFolder.mkdir
-    */
     val files = folder.listFiles
     for (file <- files) {
       val fileName = file.getName.toLowerCase
       if (fileName.startsWith("quest_") && fileName.endsWith(".xml")) {
         log.info("Analyzing " + fileName)
         val moves = XMLParser.parse(file)
-        if (moves.isEmpty) {
-          log.info("There's no moves in " + file.getName)
-          //file.renameTo(new File(noMovesFolder, file.getName))
-        } else {
-          log.info("Moving file into pending folder: " + file.getName)
-          //file.renameTo(new File(pendingMovesFolder, file.getName))
+        moves.foreach{ move =>
+          println(s"Quest HR: ${move.startTime}..${move.endTime}")
+          // upload each move separately
+          val gpsData = index.listOverlapping(move)
+          if (gpsData.nonEmpty) {
+            val merged = gpsData.reduce(_ mergeGPS _)
+            println(s"  GPS found: ${merged.startTime}..${merged.endTime}")
+          }
+          // TODO: handle GPS data with no HR - upload them separately
         }
       }
     }
