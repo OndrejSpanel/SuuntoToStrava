@@ -25,10 +25,9 @@ object MovesLinkUploader {
           println(s"Quest HR: ${move.toLog}")
           // upload each move separately
           val gpsData = index.listOverlapping(move)
-          if (gpsData.nonEmpty) {
-            val merged = gpsData.reduce(_ mergeGPS _)
-            println(s"  GPS found: ${merged.toLog}")
-          }
+          val merged = gpsData.foldLeft(move)(_ mergeGPS _)
+          // if no GPS data found, upload the move without them
+          println(s"  GPS merged: ${gpsData.map(_.toLog).mkString(", ")}")
           // TODO: handle GPS data with no HR - upload them separately
         }
       }

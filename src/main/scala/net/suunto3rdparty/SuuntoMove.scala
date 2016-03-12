@@ -39,19 +39,12 @@ case class SuuntoMove(var startTime: ZonedDateTime = ZonedDateTime.now, var dura
   }
 
   /**
-    * Concatenate two moves - non-overlapping (or mostly non-overlapping)
-    */
-  def concat(that: SuuntoMove): SuuntoMove = {
-    ???
-  }
-
-  /**
     * this contains move with HR data (Quest)
     *
-    * @param that move with GPS data (GPS Track Pod)
+    * @param that move with GPS data (GPS Track Pod), may cover only part of `this` move
     * */
   def mergeGPS(that: SuuntoMove): SuuntoMove = {
-    ???
+    this
   }
 }
 
