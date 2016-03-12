@@ -2,7 +2,7 @@ package net.suunto3rdparty
 package moveslink2
 
 import java.io._
-import java.time.{LocalDate, ZoneOffset, ZonedDateTime}
+import java.time.{ZoneOffset, ZonedDateTime}
 import java.time.format.DateTimeFormatter
 
 import org.apache.commons.math.ArgumentOutsideDomainException
@@ -10,12 +10,16 @@ import org.apache.commons.math.analysis.interpolation.SplineInterpolator
 import org.apache.commons.math.analysis.polynomials.PolynomialSplineFunction
 import org.apache.log4j.Logger
 
+import scala.collection.immutable.SortedMap
 import scala.util._
 import scala.xml._
+import Util._
 
 object XMLParser {
   private val log = Logger.getLogger(XMLParser.getClass)
   private val PositionConstant = 57.2957795131
+
+  private val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneOffset.UTC)
 
   def interpolate(spline: PolynomialSplineFunction, x: Double): Double = {
     try {
@@ -38,9 +42,6 @@ object XMLParser {
   def populateHRArray(hrList: Seq[Double]): Seq[Double] = {
     for (hr <- hrList) yield hr * 60
   }
-  def populateTimeArray(timeList: Seq[Double]): Seq[Double] = {
-    for (time <- timeList) yield time * 1000
-  }
   def generateTimeToHRSplineFunction(timeArray: Seq[Double], hrArray: Seq[Double]): PolynomialSplineFunction = {
     val interpolator = new SplineInterpolator
     interpolator.interpolate(timeArray.toArray, hrArray.toArray)
@@ -60,8 +61,7 @@ object XMLParser {
     for (rr <- rrArray) yield rr.toInt
   }
 
-  def parseHeader(header: Node): Try[SuuntoMove.Header] = {
-    val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneOffset.UTC)
+  def parseHeader(header: Node): Try[Header] = {
 
     //val moveType = Util.getChildElementValue(header, "ActivityType").toInt
     Try {
@@ -70,7 +70,7 @@ object XMLParser {
         throw new UnsupportedOperationException("Zero distance")
       }
       val dateTime = (header \ "DateTime")(0).text
-      SuuntoMove.Header(
+      Header(
         startTime = ZonedDateTime.parse(dateTime, dateFormat),
         duration = ((header \ "Duration")(0).text.toDouble * 1000).toInt,
         calories = Try(Util.kiloCaloriesFromKilojoules((header \ "Energy")(0).text.toDouble)).getOrElse(0),
@@ -80,7 +80,7 @@ object XMLParser {
   }
 
 
-  def parseSamples(header: SuuntoMove.Header, samples: NodeSeq, rr: Seq[Int]): SuuntoMove = {
+  def parseSamples(header: Header, samples: NodeSeq, rr: Seq[Int]): Move = {
     val sampleList = samples \ "Sample"
 
     class PauseState {
@@ -116,8 +116,9 @@ object XMLParser {
             val lat = (sample \ "Latitude")(0).text.toDouble * XMLParser.PositionConstant
             val lon = (sample \ "Longitude")(0).text.toDouble * XMLParser.PositionConstant
             val elevation = Try((sample \ "GPSAltitude")(0).text.toInt).toOption
-            val utc = (sample \ "UTC")(0).text
-            SuuntoMove.TrackPoint(lat, lon, elevation, utc)
+            val utcStr = (sample \ "UTC")(0).text
+            val utc = ZonedDateTime.parse(utcStr, dateFormat)
+            utc -> GPSPoint(lat, lon, elevation)
           }
 
           parseSample.toOption
@@ -138,10 +139,12 @@ object XMLParser {
           } yield {
             val hrTry = Try((sample \ "HR")(0).text)
             val elevationTry = Try((sample \ "Altitude")(0).text)
-            val hr = hrTry.map(_.toDouble).toOption
+            val timeTry = Try(ZonedDateTime.parse((sample \ "UTC")(0).text, dateFormat))
+            // prefer UTC when present
+            val timeUtc = timeTry.getOrElse(header.startTime.plusNanos((time * 1000000L).toLong))
+            val hr = hrTry.map(_.toInt).toOption
             val elevation = elevationTry.map(_.toInt).toOption
-            // TODO: may contain UTC directly - prefer it
-            (time, distanceStr.toDouble, hr, elevation)
+            (timeUtc, distanceStr.toDouble, hr, elevation)
           }
           periodicSample.toOption
         } else None
@@ -153,37 +156,21 @@ object XMLParser {
         Some((ts.map(_._1), ts.map(_._2), ts.map(_._3), ts.map(_._4)))
 
     }
-    val Unzipped4(timeSeq, distanceArray, hrSeq, elevArray) = periodicSamples
+    val Unzipped4(timeSeq, distanceSeq, hrSeq, elevSeq) = periodicSamples
     val hasHR = hrSeq.exists(_.nonEmpty)
 
-    val timeArray = populateTimeArray(timeSeq)
-    val hrArray = populateHRArray(hrSeq.map(_.getOrElse(0.0)))
+    val hrSeqValid = SortedMap((timeSeq zip hrSeq).filter(_._2.nonEmpty).map(s => s.copy(_2 = s._2.get)):_*)
+    val elevSeqValid = SortedMap((timeSeq zip elevSeq).filter(_._2.nonEmpty).map(s => s.copy(_2 = s._2.get)):_*)
+    val distanceSeqValid = SortedMap(timeSeq zip distanceSeq:_*)
 
-    val timeToDistance = generateTimeToDistanceSplineFunction(timeArray, distanceArray)
-    val timeToHR = if (hasHR || rr.isEmpty) {
-      generateTimeToHRSplineFunction(timeArray, hrArray)
-    } else {
-      var time: Double = 0
-      val timeRRArray = for (value <- rr) yield {
-        time += value
-        time
-      }
-      val hrRRArray = for (value <- rr) yield 60000.0 / value
+    val hrStream = if (hrSeqValid.nonEmpty) Some(new DataStreamHR(header.startTime, header.duration, hrSeqValid)) else None
+    val distanceStream = new DataStreamDist(header.startTime, header.duration, distanceSeqValid)
+    val gpsStream = new DataStreamGPS(header.startTime, header.duration, SortedMap(trackPoints:_*))
 
-      generateTimeToHRSplineFunction(timeRRArray, hrRRArray)
-    }
-    val hrAndDistance = for (t <- 0 until header.duration by 10000) yield {
-      val hr = interpolate(timeToHR, t).toInt
-      val distance = interpolate(timeToDistance, t).toInt
-      (hr, distance)
-    }
-
-    val (hrRes, distanceRes) = hrAndDistance.unzip
-
-    new SuuntoMove(header, distanceRes, hrRes, trackPoints)
+    new Move(header, gpsStream +: distanceStream +: hrStream.toSeq:_*)
   }
 
-  def parse(xmlFile: File): Try[SuuntoMove] = {
+  def parse(xmlFile: File): Try[Move] = {
     XMLParser.log.debug("Parsing " + xmlFile.getName)
 
     val (doc, header) = if (xmlFile.getName.endsWith(".xml")) {

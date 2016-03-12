@@ -24,8 +24,8 @@ object MovesLinkUploader {
         moves.foreach{ move =>
           println(s"Quest HR: ${move.toLog}")
           // upload each move separately
-          val gpsData = index.listOverlapping(move)
-          val merged = gpsData.foldLeft(move)(_ mergeGPS _)
+          val gpsData = index.listOverlapping(move.streams(StreamHR), StreamGPS)
+          val merged = gpsData.foldLeft(move)(_ addStream _)
           // if no GPS data found, upload the move without them
           println(s"  GPS merged: ${gpsData.map(_.toLog).mkString(", ")}")
           // TODO: handle GPS data with no HR - upload them separately

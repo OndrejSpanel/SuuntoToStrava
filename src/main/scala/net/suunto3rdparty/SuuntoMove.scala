@@ -1,50 +1,56 @@
 package net.suunto3rdparty
 
 import java.time.ZonedDateTime
+
 import Util._
 
-object SuuntoMove {
-  case class Header(startTime: ZonedDateTime = ZonedDateTime.now, duration: Int = 0, calories: Int = 0, distance: Int = 0)
-  case class TrackPoint(latitude: Double, longitude: Double, elevation: Option[Int], time: String)
+import scala.collection.immutable.SortedMap
+
+case class Header(startTime: ZonedDateTime = ZonedDateTime.now, duration: Int = 0, calories: Int = 0, distance: Int = 0)
+case class GPSPoint(latitude: Double, longitude: Double, elevation: Option[Int])
+
+trait StreamType
+object StreamGPS extends StreamType {
+  override def toString: String = "GPS"
+}
+object StreamHR extends StreamType {
+  override def toString: String = "HR"
+}
+object StreamDist extends StreamType {
+  override def toString: String = "Dist"
 }
 
-case class SuuntoMove(var startTime: ZonedDateTime = ZonedDateTime.now, var duration: Int = 0, var calories: Int = 0, var distance: Int = 0) {
-  import SuuntoMove._
+abstract class DataStream(val streamType: StreamType, val startTime: ZonedDateTime, val durationMs: Int) {
+  type Item
 
-  def endTime: ZonedDateTime = startTime.plusNanos(duration * 1000000L)
+  def stream: SortedMap[ZonedDateTime, Item]
 
-  def isOverlapping(that: SuuntoMove): Boolean = !(startTime > that.endTime || endTime < that.startTime)
+  def endTime: ZonedDateTime = startTime.plusNanos(durationMs * 1000000L)
 
-  def toLog = s"${startTime.toLog} .. ${endTime.toLogShort}"
+  def isOverlapping(that: DataStream): Boolean = !(startTime > that.endTime || endTime < that.startTime)
 
-  private var distanceSamples = Seq[Int]()
-  private var heartRateSamples = Seq[Int]()
-  private var trackPoints = Seq[TrackPoint]()
+  def toLog = s"$streamType: ${startTime.toLog} .. ${endTime.toLogShort}"
 
-  def this(distSamples: Seq[Int], hrSamples: Seq[Int]) = {
-    this()
-    distanceSamples = distSamples
-    heartRateSamples = hrSamples
-  }
-
-  def this(header: SuuntoMove.Header, distSamples: Seq[Int], hrSamples: Seq[Int], trackPointSamples: Seq[SuuntoMove.TrackPoint]) = {
-    this(header.startTime, header.duration, header.calories, header.distance)
-    distanceSamples = distSamples
-    heartRateSamples = hrSamples
-    trackPoints = trackPointSamples
-  }
-
-  def this(header: SuuntoMove.Header, distSamples: Seq[Int], hrSamples: Seq[Int]) = {
-    this(header, distSamples, hrSamples, Seq())
-  }
-
-  /**
-    * this contains move with HR data (Quest)
-    *
-    * @param that move with GPS data (GPS Track Pod), may cover only part of `this` move
-    * */
-  def mergeGPS(that: SuuntoMove): SuuntoMove = {
-    this
-  }
 }
 
+class DataStreamGPS(startTime: ZonedDateTime, durationMs: Int, override val stream: SortedMap[ZonedDateTime, GPSPoint]) extends DataStream(StreamGPS, startTime, durationMs) {
+  type Item = GPSPoint
+}
+
+class DataStreamHR(startTime: ZonedDateTime, durationMs: Int, override val stream: SortedMap[ZonedDateTime, Int]) extends DataStream(StreamHR, startTime, durationMs) {
+  type Item = Int
+}
+
+class DataStreamDist(startTime: ZonedDateTime, durationMs: Int, override val stream: SortedMap[ZonedDateTime, Double]) extends DataStream(StreamDist, startTime, durationMs) {
+  type Item = Double
+}
+
+case class Move(header: Header, streams: Map[StreamType, DataStream]) {
+  def this(header: Header, streamSeq: DataStream*) = {
+    this(header, streamSeq.map(s => s.streamType -> s).toMap)
+  }
+
+  def toLog: String = streams.mapValues(_.toLog).mkString(", ")
+
+  def addStream(stream: DataStream) = copy(streams = streams + (stream.streamType -> stream))
+}

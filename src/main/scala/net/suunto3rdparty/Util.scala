@@ -20,6 +20,10 @@ object Util {
     }
   }
 
+  implicit def zonedDateTimeOrdering: Ordering[ZonedDateTime] = new Ordering[ZonedDateTime] {
+    override def compare(x: ZonedDateTime, y: ZonedDateTime): Int = x.compareTo(y)
+  }
+
   def kiloCaloriesFromKilojoules(kj: Double): Int = (kj / 4184).toInt
 
   def isWindows: Boolean = {
