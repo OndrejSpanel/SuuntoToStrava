@@ -2,7 +2,7 @@ package net.suunto3rdparty
 package moveslink2
 
 import java.io._
-import java.time.{LocalDate, ZonedDateTime}
+import java.time.{LocalDate, ZoneOffset, ZonedDateTime}
 import java.time.format.DateTimeFormatter
 
 import org.apache.commons.math.ArgumentOutsideDomainException
@@ -61,6 +61,8 @@ object XMLParser {
   }
 
   def parseHeader(header: Node): Try[SuuntoMove.Header] = {
+    val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneOffset.UTC)
+
     //val moveType = Util.getChildElementValue(header, "ActivityType").toInt
     Try {
       val distance = (header \ "Distance")(0).text.toInt
@@ -69,7 +71,7 @@ object XMLParser {
       }
       val dateTime = (header \ "DateTime")(0).text
       SuuntoMove.Header(
-        startTime = ZonedDateTime.parse(dateTime, Util.dateFormat),
+        startTime = ZonedDateTime.parse(dateTime, dateFormat),
         duration = ((header \ "Duration")(0).text.toDouble * 1000).toInt,
         calories = Try(Util.kiloCaloriesFromKilojoules((header \ "Energy")(0).text.toDouble)).getOrElse(0),
         distance = distance

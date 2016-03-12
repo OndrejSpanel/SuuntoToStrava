@@ -5,7 +5,10 @@ class MoveIndex {
 
   def add(move: SuuntoMove): Unit = index = move +: index
 
-  def findOverlapping(that: SuuntoMove): Seq[SuuntoMove] = {
+  /**
+    * list all segments overlapping in time the given one
+    */
+  def listOverlapping(that: SuuntoMove): Seq[SuuntoMove] = {
     val startTime = that.startTime
     val endTime = that.endTime
     ???

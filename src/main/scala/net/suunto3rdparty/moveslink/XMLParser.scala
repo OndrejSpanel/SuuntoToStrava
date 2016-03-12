@@ -2,7 +2,8 @@ package net.suunto3rdparty
 package moveslink
 
 import java.io.File
-import java.time.ZonedDateTime
+import java.time.{ZoneOffset, ZonedDateTime}
+import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 
 import scala.xml._
@@ -32,13 +33,15 @@ object XMLParser {
   }
 
   def parseHeader(header: Node, suuntoMove: SuuntoMove) = {
+    val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneOffset.UTC)
+
     val durationPattern = Pattern.compile("(\\d+):(\\d+):(\\d+)\\.?(\\d*)")
 
     suuntoMove.calories = (header \ "Calories")(0).text.toInt
     suuntoMove.distance = (header \ "Distance")(0).text.toInt
 
     val timeText = (header \ "Time") (0).text
-    suuntoMove.startTime = ZonedDateTime.parse(timeText, Util.dateFormat)
+    suuntoMove.startTime = ZonedDateTime.parse(timeText, dateFormat)
     val durationStr = (header \ "Duration")(0).text
     val matcher = durationPattern.matcher(durationStr)
     if (matcher.matches) {
