@@ -9,12 +9,11 @@ object SuuntoMove {
 }
 
 case class SuuntoMove(var startTime: ZonedDateTime = ZonedDateTime.now, var duration: Int = 0, var calories: Int = 0, var distance: Int = 0) {
-  def endTime: ZonedDateTime = ???
+  import SuuntoMove._
+
+  def endTime: ZonedDateTime = startTime.plusNanos(duration * 1000L)
 
   def isOverlapping(that: SuuntoMove): Boolean = !(startTime > that.endTime || endTime < that.startTime)
-
-
-  import SuuntoMove._
 
   private var distanceSamples = Seq[Int]()
   private var heartRateSamples = Seq[Int]()
