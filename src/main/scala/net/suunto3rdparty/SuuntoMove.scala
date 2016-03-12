@@ -1,6 +1,7 @@
 package net.suunto3rdparty
 
 import java.time.ZonedDateTime
+import Util._
 
 object SuuntoMove {
   case class Header(startTime: ZonedDateTime = ZonedDateTime.now, duration: Int = 0, calories: Int = 0, distance: Int = 0)
@@ -8,7 +9,10 @@ object SuuntoMove {
 }
 
 case class SuuntoMove(var startTime: ZonedDateTime = ZonedDateTime.now, var duration: Int = 0, var calories: Int = 0, var distance: Int = 0) {
-  def endTime = ???
+  def endTime: ZonedDateTime = ???
+
+  def isOverlapping(that: SuuntoMove): Boolean = !(startTime > that.endTime || endTime < that.startTime)
+
 
   import SuuntoMove._
 
