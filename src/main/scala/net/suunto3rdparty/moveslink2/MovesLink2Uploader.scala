@@ -29,10 +29,6 @@ object MovesLink2Uploader {
   def readXMLFiles(): MoveIndex = {
     val index = new MoveIndex
     val folder = getDataFolder
-    //val notRunFolder = new File(folder, "NotRun")
-    //val uploadedMovesFolder = new File(folder, "Uploaded")
-    //notRunFolder.mkdir
-    //uploadedMovesFolder.mkdir
     val files = folder.listFiles
     for (file <- files) {
       val fileName = file.getName.toLowerCase
