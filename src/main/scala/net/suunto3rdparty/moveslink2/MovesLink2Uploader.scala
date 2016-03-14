@@ -2,7 +2,6 @@ package net.suunto3rdparty
 package moveslink2
 
 import java.io.File
-import Util._
 
 import org.apache.log4j.Logger
 
@@ -22,10 +21,6 @@ object MovesLink2Uploader {
     val folder: File = getDataFolder
     if (!folder.exists) {
       MovesLink2Uploader.log.info("Cannot find MovesLink2 data folder at " + folder.getAbsolutePath)
-      return false
-    }
-    if (!folder.canWrite) {
-      MovesLink2Uploader.log.error("Cannot write to moveslink2 data folder at " + folder.getAbsolutePath)
       return false
     }
     true
