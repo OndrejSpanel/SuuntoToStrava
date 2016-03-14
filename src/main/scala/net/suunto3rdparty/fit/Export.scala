@@ -17,8 +17,8 @@ trait EncoderCloser {
 object Export {
   type Encoder = MesgListener with MesgDefinitionListener with EncoderCloser
 
-  def createEncoder: Encoder = {
-    val file = new File("testoutput.fit")
+  def createEncoder(time: ZonedDateTime): Encoder = {
+    val file = new File("testoutput_" + time.toFileName + ".fit")
     val encoder = new FileEncoder(file) with EncoderCloser
 
     //Generate FileIdMessage
@@ -36,7 +36,7 @@ object Export {
 
   def apply(move: Move): Unit = {
 
-    val encoder = createEncoder
+    val encoder = createEncoder(move.streams.head._2.startTime)
     // start by writing a header
     // write all data, sorted by time
 
@@ -61,6 +61,26 @@ object Export {
 
     // TODO: unify event sampling times (driven by best resolution)
     // we have the event stream sorted, now write it
+    for {
+      evGroup <- combined
+      ev <- evGroup._2
+    } {
+      val msg: Option[Mesg] = ev match {
+        case gps: GPSPoint =>
+          val myMsg = new CoursePointMesg()
+          val longLatScale = 1000000
+          val instantMs = evGroup._1.toInstant.getEpochSecond * 1000 + evGroup._1.toInstant.getNano / 1000000
+          myMsg.setTimestamp(new DateTime(instantMs))
+          myMsg.setPositionLong((gps.longitude*longLatScale).toInt)
+          myMsg.setPositionLat((gps.latitude*longLatScale).toInt)
+          Some(myMsg)
+        case hr: Int =>
+          None
+        case dist: Double =>
+          None
+      }
+      msg.foreach(encoder.onMesg)
+    }
 
     // file needs closing
     encoder.close()

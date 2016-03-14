@@ -72,7 +72,7 @@ object XMLParser {
       }
       val dateTime = (header \ "DateTime")(0).text
       Header(
-        startTime = ZonedDateTime.parse(dateTime, dateFormatNoZone),
+        startTime = timeToUTC(ZonedDateTime.parse(dateTime, dateFormatNoZone)),
         duration = ((header \ "Duration")(0).text.toDouble * 1000).toInt,
         calories = Try(Util.kiloCaloriesFromKilojoules((header \ "Energy")(0).text.toDouble)).getOrElse(0),
         distance = distance

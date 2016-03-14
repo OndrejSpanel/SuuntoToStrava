@@ -59,7 +59,7 @@ object XMLParser {
     val distance = (headerStr \ "Distance")(0).text.toInt
 
     val timeText = (headerStr \ "Time") (0).text
-    val startTime = ZonedDateTime.parse(timeText, dateFormat)
+    val startTime = timeToUTC(ZonedDateTime.parse(timeText, dateFormat))
     val durationStr = (headerStr \ "Duration")(0).text
     val matcher = durationPattern.matcher(durationStr)
     val duration = if (matcher.matches) {
