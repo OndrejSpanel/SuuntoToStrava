@@ -23,10 +23,10 @@ object Export {
 
     //Generate FileIdMessage
     val fileIdMesg = new FileIdMesg
-    fileIdMesg.setManufacturer(Manufacturer.DYNASTREAM)
-    fileIdMesg.setType(fit.File.SETTINGS)
-    fileIdMesg.setProduct(1000)
-    fileIdMesg.setSerialNumber(12345L)
+    fileIdMesg.setManufacturer(Manufacturer.SUUNTO)
+    fileIdMesg.setType(fit.File.ACTIVITY)
+    fileIdMesg.setProduct(1000) // TODO: use from Move of find a value
+    fileIdMesg.setSerialNumber(12345L) // TODO: use from Move of find a value
 
     encoder.write(fileIdMesg)
 
