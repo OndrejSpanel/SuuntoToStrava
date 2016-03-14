@@ -2,7 +2,7 @@ package net.suunto3rdparty
 package moveslink
 
 import java.io.File
-import java.time.{ZoneOffset, ZonedDateTime}
+import java.time.{ZoneId, ZoneOffset, ZonedDateTime}
 import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 
@@ -51,7 +51,7 @@ object XMLParser {
   }
 
   def parseHeader(headerStr: Node) = {
-    val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneOffset.UTC)
+    val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault)
 
     val durationPattern = Pattern.compile("(\\d+):(\\d+):(\\d+)\\.?(\\d*)")
 

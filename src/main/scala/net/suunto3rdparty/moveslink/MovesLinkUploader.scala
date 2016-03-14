@@ -30,6 +30,7 @@ object MovesLinkUploader {
           val merged = gpsData.foldLeft(move)(_ addStream _)
           // if no GPS data found, upload the move without them
           println(s"  GPS merged: ${gpsData.map(_.toLog).mkString(", ")}")
+          fit.Export(merged)
         }
       }
     }

@@ -2,7 +2,7 @@ package net.suunto3rdparty
 package moveslink2
 
 import java.io._
-import java.time.{ZoneOffset, ZonedDateTime}
+import java.time.{ZoneOffset, ZonedDateTime, ZoneId}
 import java.time.format.DateTimeFormatter
 
 import org.apache.commons.math.ArgumentOutsideDomainException
@@ -19,7 +19,8 @@ object XMLParser {
   private val log = Logger.getLogger(XMLParser.getClass)
   private val PositionConstant = 57.2957795131
 
-  private val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneOffset.UTC)
+  private val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").withZone(ZoneOffset.UTC)
+  private val dateFormatNoZone = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneId.systemDefault)
 
   def interpolate(spline: PolynomialSplineFunction, x: Double): Double = {
     try {
@@ -71,7 +72,7 @@ object XMLParser {
       }
       val dateTime = (header \ "DateTime")(0).text
       Header(
-        startTime = ZonedDateTime.parse(dateTime, dateFormat),
+        startTime = ZonedDateTime.parse(dateTime, dateFormatNoZone),
         duration = ((header \ "Duration")(0).text.toDouble * 1000).toInt,
         calories = Try(Util.kiloCaloriesFromKilojoules((header \ "Energy")(0).text.toDouble)).getOrElse(0),
         distance = distance

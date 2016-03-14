@@ -20,11 +20,14 @@ object StreamDist extends StreamType {
   override def toString: String = "Dist"
 }
 
-abstract class DataStream(val streamType: StreamType, val startTime: ZonedDateTime, val durationMs: Int) {
+abstract class DataStream(val streamType: StreamType, val startTimeFromFile: ZonedDateTime, val durationMs: Int) {
   type Item
 
-  def stream: SortedMap[ZonedDateTime, Item]
+  type DataMap = SortedMap[ZonedDateTime, Item]
 
+  def stream: DataMap
+
+  val startTime: ZonedDateTime = stream.headOption.map(_._1).getOrElse(startTimeFromFile)
   def endTime: ZonedDateTime = startTime.plusNanos(durationMs * 1000000L)
 
   def isOverlapping(that: DataStream): Boolean = !(startTime > that.endTime || endTime < that.startTime)
