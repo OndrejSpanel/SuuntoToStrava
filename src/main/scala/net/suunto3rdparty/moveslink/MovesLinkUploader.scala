@@ -16,6 +16,7 @@ object MovesLinkUploader {
   def uploadXMLFiles(index: MoveIndex): Unit = {
     val folder = getDataFolder
     val files = folder.listFiles
+    var usedGPS = Set[Move]()
     for (file <- files) {
       val fileName = file.getName.toLowerCase
       if (fileName.startsWith("quest_") && fileName.endsWith(".xml")) {
@@ -24,13 +25,18 @@ object MovesLinkUploader {
         moves.foreach{ move =>
           println(s"Quest HR: ${move.toLog}")
           // upload each move separately
-          val gpsData = index.listOverlapping(move.streams(StreamHR), StreamGPS)
+          val (gpsMoves, gpsData) = index.listOverlapping(move.streams(StreamHR), StreamGPS).unzip
+          usedGPS = usedGPS ++ gpsMoves
           val merged = gpsData.foldLeft(move)(_ addStream _)
           // if no GPS data found, upload the move without them
           println(s"  GPS merged: ${gpsData.map(_.toLog).mkString(", ")}")
-          // TODO: handle GPS data with no HR - upload them separately
         }
       }
+    }
+    // TODO: handle GPS data with no HR - upload them separately
+    val unusedGPS = index.index -- usedGPS
+    for (gpsOnly <- unusedGPS) {
+      println(s"GPS only: ${gpsOnly.toLog}")
     }
   }
 
