@@ -1,16 +1,18 @@
 package net.suunto3rdparty
 package strava
 
-import java.io.File
+import java.io.{ByteArrayInputStream, File}
 
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.{Sink, Source}
 import HttpMethods._
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.headers.RawHeader
+import akka.http.scaladsl.marshalling.Marshal
+import akka.http.scaladsl.model.headers.{Expect, RawHeader}
 import akka.stream.ActorMaterializer
+import akka.util.ByteString
 import fit.Export
 
 import scala.concurrent.duration.Duration
@@ -20,14 +22,17 @@ import scala.concurrent.Await
 case class StravaAPIParams(appId: Int, clientSecret: String, code: String)
 
 object StravaAPI {
+  val localTest = false
+
   val stravaSite = "www.strava.com"
   val stravaRootURL = "/api/v3/"
   val stravaRoot = "https://" + stravaSite + stravaRootURL
 
-
   def buildURI(path: String): Uri = {
-    Uri(scheme = "https", authority = Uri.Authority(Uri.Host(stravaSite)), path = Uri.Path(stravaRootURL + path))
+    if (!localTest) Uri(scheme = "https", authority = Uri.Authority(Uri.Host(stravaSite)), path = Uri.Path(stravaRootURL + path))
+    else Uri(scheme = "http", authority = Uri.Authority(Uri.Host("localhost"), port = 8080), path = Uri.Path("/JavaEE-war/"))
   }
+
   class CC[T] {
     def unapply(a: Option[Any]): Option[T] = a.map(_.asInstanceOf[T])
   }
@@ -43,6 +48,7 @@ object StravaAPI {
 }
 
 class StravaAPI(appId: Int, clientSecret: String, code: String) {
+
   import StravaAPI._
 
   protected def this(params: StravaAPIParams) = this(params.appId, params.clientSecret, params.code)
@@ -53,7 +59,7 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  lazy val authString: Option[String] = {
+  lazy val authString: Option[String] = if (localTest) Some("Bearer xxxxx") else {
     val target = buildURI("oauth/token")
     val formData = FormData(
       ("client_id", appId.toString),
@@ -125,8 +131,76 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
     response
   }
 
-  def upload(merged: Move): Unit = ???
+  /*
+    * @return upload id (use to check status with uploads/:id)
+    * */
+  def upload(move: Move): Option[Int] = {
+    val response = authString.flatMap{ authString =>
+      val moveBytes = Export.toBuffer(move)
+      val is = new ByteArrayInputStream(moveBytes)
 
+      val target = buildURI("uploads")
+
+      val pars = Seq(
+        ("data_type", "fit"),
+        ("activity_type", "run"), //
+        ("name", "Test Upload Run"), //
+        ("description", "Just testing"), //
+        ("trainer", "0"),
+        ("commute", "0"),
+        ("private", "1"),
+        ("external_id", "veryUniqueString")
+      )
+      val parsBodyPart = pars.map { kv =>
+        Multipart.FormData.BodyPart(kv._1, HttpEntity(ByteString(kv._2)))
+      }
+      //val fileBodyPart = Multipart.FormData.BodyPart.Strict("file.fit", HttpEntity(ContentTypes.`application/octet-stream`, moveBytes))
+      val fileBodyPart = Multipart.FormData.BodyPart.Strict("file.fit", HttpEntity(ContentTypes.`application/octet-stream`, moveBytes))
+
+      val multipartForm = Multipart.FormData(parsBodyPart :+ fileBodyPart:_*)
+
+      val multipartEntity = Marshal(multipartForm).to[RequestEntity]
+
+      /*
+      val content = for {
+        binding <- Http().bindAndHandle(routes, "127.0.0.1", 0)
+        request <- Marshal(multipartForm).to[RequestEntity]
+        response <- Http().singleRequest(HttpRequest(method = HttpMethods.POST, uri = s"http://${binding.localAddress.getHostString}:${binding.localAddress.getPort}/test", entity = request))
+        entity <- Unmarshal(response.entity).to[String]
+      } yield entity
+
+     */
+
+      val uploadRequest = for {
+        entity <- multipartEntity
+        request = HttpRequest(POST, target, headers = List(RawHeader("Authorization", authString), Expect.`100-continue`), entity = entity)
+        response <- Http().singleRequest(request)
+        responseBodyAsString <- Unmarshal(response).to[String]
+      } yield {
+        println(entity)
+        println(request)
+        responseBodyAsString
+      }
+      val result = Await.result(uploadRequest, Duration.Inf)
+      // TODO: check if result is OK
+      // we expect to receive 201
+      val resultJson = JSON.parseFull(result)
+      val uploadId = Option(resultJson).flatMap {
+        case M(map) =>
+          map.get("id") match {
+            case S(id) =>
+              Some(id.toInt)
+            case _ =>
+              None
+          }
+        case _ => None
+      }
+
+      uploadId
+
+    }
+    response
+  }
 }
 
 object StravaAPIThisApp {
