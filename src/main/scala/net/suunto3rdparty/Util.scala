@@ -1,7 +1,7 @@
 package net.suunto3rdparty
 
 import java.io.File
-import java.time.{ZoneId, ZoneOffset, ZonedDateTime}
+import java.time.{ZoneOffset, ZonedDateTime}
 import java.time.format.DateTimeFormatter
 
 object Util {
