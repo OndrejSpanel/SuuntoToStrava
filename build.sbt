@@ -18,6 +18,6 @@ libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.3"
 
 libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
 
-libraryDependencies += "org.scalaj" %% "scalaj-http" % "2.2.1"
+libraryDependencies += "com.typesafe.akka" %% "akka-http-experimental" % "2.4.2"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.5" % "test"
