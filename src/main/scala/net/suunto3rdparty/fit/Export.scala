@@ -72,13 +72,15 @@ object Export {
         case gps: GPSPoint =>
           val myMsg = new RecordMesg()
           val longLatScale = (1L<<31).toDouble/180
-          val instant = evGroup._1.toInstant.getEpochSecond - DateTime.OFFSET / 1000.0 + evGroup._1.toInstant.getNano / 1000000000.0
-          myMsg.setTimestamp(new DateTime(0, instant))
+          myMsg.setTimestamp(toTimestamp(evGroup._1))
           myMsg.setPositionLong((gps.longitude * longLatScale).toInt)
           myMsg.setPositionLat((gps.latitude * longLatScale).toInt)
           Some(myMsg)
         case hr: Int =>
-          None
+          val myMsg = new RecordMesg()
+          myMsg.setTimestamp(toTimestamp(evGroup._1))
+          myMsg.setHeartRate(hr.toShort)
+          Some(myMsg)
         case dist: Double =>
           None
       }
@@ -88,5 +90,11 @@ object Export {
     // file needs closing
     encoder.close()
 
+  }
+  def toTimestamp(zonedTime: ZonedDateTime): DateTime = {
+    val instant = zonedTime.toInstant
+    val timestamp = instant.getEpochSecond - DateTime.OFFSET / 1000.0 + instant.getNano / 1000000000.0
+    val dateTime = new DateTime(0, timestamp)
+    dateTime
   }
 }

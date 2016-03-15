@@ -8,8 +8,9 @@ import scala.collection.immutable.SortedMap
 
 case class Header(startTime: ZonedDateTime = ZonedDateTime.now, duration: Int = 0, calories: Int = 0, distance: Int = 0)
 case class GPSPoint(latitude: Double, longitude: Double, elevation: Option[Int])
+case class HRPoint(hr: Int, dist: Double)
 
-trait StreamType
+sealed trait StreamType
 object StreamGPS extends StreamType {
   override def toString: String = "GPS"
 }
@@ -19,8 +20,11 @@ object StreamHR extends StreamType {
 object StreamDist extends StreamType {
   override def toString: String = "Dist"
 }
+object StreamHRWithDist extends StreamType {
+  override def toString: String = "HR_Dist"
+}
 
-abstract class DataStream(val streamType: StreamType, val startTimeFromFile: ZonedDateTime, val durationMs: Int) {
+sealed abstract class DataStream(val streamType: StreamType, val startTimeFromFile: ZonedDateTime, val durationMs: Int) {
   type Item
 
   type DataMap = SortedMap[ZonedDateTime, Item]
@@ -38,6 +42,10 @@ abstract class DataStream(val streamType: StreamType, val startTimeFromFile: Zon
 
 class DataStreamGPS(startTime: ZonedDateTime, durationMs: Int, override val stream: SortedMap[ZonedDateTime, GPSPoint]) extends DataStream(StreamGPS, startTime, durationMs) {
   type Item = GPSPoint
+}
+
+class DataStreamHRWithDist(startTime: ZonedDateTime, durationMs: Int, override val stream: SortedMap[ZonedDateTime, HRPoint]) extends DataStream(StreamHRWithDist, startTime, durationMs) {
+  type Item = HRPoint
 }
 
 class DataStreamHR(startTime: ZonedDateTime, durationMs: Int, override val stream: SortedMap[ZonedDateTime, Int]) extends DataStream(StreamHR, startTime, durationMs) {
