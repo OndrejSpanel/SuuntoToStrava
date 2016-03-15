@@ -21,6 +21,10 @@ object Export {
     val file = new File("testoutput_" + time.toFileName + ".fit")
     val encoder = new FileEncoder(file) with EncoderCloser
 
+    encoder
+  }
+
+  def encodeHeader(encoder: Encoder): Unit = {
     //Generate FileIdMessage
     val fileIdMesg = new FileIdMesg
     fileIdMesg.setManufacturer(Manufacturer.SUUNTO)
@@ -28,16 +32,15 @@ object Export {
     fileIdMesg.setProduct(1000) // TODO: use from Move of find a value
     fileIdMesg.setSerialNumber(12345L) // TODO: use from Move of find a value
 
-    encoder.write(fileIdMesg)
-
-    encoder
+    encoder.onMesg(fileIdMesg)
   }
-
 
   def apply(move: Move): Unit = {
 
     val encoder = createEncoder(move.streams.head._2.startTime)
     // start by writing a header
+    encodeHeader(encoder)
+
     // write all data, sorted by time
 
     type MultiSamples = SortedMap[ZonedDateTime, Seq[DataStream#Item]]
