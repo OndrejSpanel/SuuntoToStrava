@@ -39,6 +39,15 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
     }
   }
 
+  def athlete: Option[String] = {
+    val response = for (authString <- authString) yield {
+      val athleteRequest = Http(stravaRoot + "athlete").header("Authorization", authString)
+
+      val body = athleteRequest.asString.body
+      if (body.nonEmpty) Some(body) else None
+    }
+    response.flatten
+  }
 }
 
 object StravaAccess extends App {
@@ -57,11 +66,7 @@ object StravaAccess extends App {
 
   val api = new StravaAPI(appId, clientSecret, code)
 
-  for (authString <- api.authString) {
-    val athleteRequest = Http(api.stravaRoot + "athlete").header("Authorization", authString)
-
-    val athleteString = athleteRequest.asString.body
-
-    println(athleteString)
+  for (athlete <- api.athlete) {
+    println(athlete)
   }
 }
