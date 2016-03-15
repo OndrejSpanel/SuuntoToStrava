@@ -21,4 +21,3 @@ object Main extends App {
   log.info("Upload MovesLink done.")
 
 }
-
