@@ -6,13 +6,12 @@ import java.io.{ByteArrayInputStream, File}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.Sink
 import HttpMethods._
 import akka.actor.ActorSystem
 import akka.http.scaladsl.marshalling.Marshal
-import akka.http.scaladsl.model.headers.{Expect, RawHeader}
+import akka.http.scaladsl.model.headers.{Accept, Expect, RawHeader}
 import akka.stream.ActorMaterializer
-import akka.util.ByteString
 import fit.Export
 
 import scala.concurrent.duration.Duration
@@ -30,7 +29,7 @@ object StravaAPI {
 
   def buildURI(path: String): Uri = {
     if (!localTest) Uri(scheme = "https", authority = Uri.Authority(Uri.Host(stravaSite)), path = Uri.Path(stravaRootURL + path))
-    else Uri(scheme = "http", authority = Uri.Authority(Uri.Host("localhost"), port = 8080), path = Uri.Path("/JavaEE-war/"))
+    else Uri(scheme = "http", authority = Uri.Authority(Uri.Host("localhost"), port = 8080), path = Uri.Path("/JavaEE-war/webresources/generic/"))
   }
 
   class CC[T] {
@@ -141,39 +140,26 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
 
       val target = buildURI("uploads")
 
-      val pars = Seq(
-        ("data_type", "fit"),
+      val pars = List(
         ("activity_type", "run"), //
-        ("name", "Test Upload Run"), //
-        ("description", "Just testing"), //
-        ("trainer", "0"),
-        ("commute", "0"),
-        ("private", "1"),
-        ("external_id", "veryUniqueString")
+        ("data_type", "fit"),
+        ("private", "1")
       )
       val parsBodyPart = pars.map { kv =>
-        Multipart.FormData.BodyPart(kv._1, HttpEntity(ByteString(kv._2)))
+        Multipart.FormData.BodyPart.Strict(kv._1, HttpEntity(kv._2))
       }
-      //val fileBodyPart = Multipart.FormData.BodyPart.Strict("file.fit", HttpEntity(ContentTypes.`application/octet-stream`, moveBytes))
-      val fileBodyPart = Multipart.FormData.BodyPart.Strict("file.fit", HttpEntity(ContentTypes.`application/octet-stream`, moveBytes))
+      val filename = Map("filename" ->"file.fit")
+      val fileBodyPart = Multipart.FormData.BodyPart.Strict("file", HttpEntity(ContentTypes.`application/octet-stream`, moveBytes), additionalDispositionParams = filename)
 
-      val multipartForm = Multipart.FormData(parsBodyPart :+ fileBodyPart:_*)
+      val multipartForm = Multipart.FormData.Strict(parsBodyPart :+ fileBodyPart)
 
       val multipartEntity = Marshal(multipartForm).to[RequestEntity]
 
-      /*
-      val content = for {
-        binding <- Http().bindAndHandle(routes, "127.0.0.1", 0)
-        request <- Marshal(multipartForm).to[RequestEntity]
-        response <- Http().singleRequest(HttpRequest(method = HttpMethods.POST, uri = s"http://${binding.localAddress.getHostString}:${binding.localAddress.getPort}/test", entity = request))
-        entity <- Unmarshal(response.entity).to[String]
-      } yield entity
-
-     */
-
       val uploadRequest = for {
         entity <- multipartEntity
-        request = HttpRequest(POST, target, headers = List(RawHeader("Authorization", authString), Expect.`100-continue`), entity = entity)
+        //headers = List(RawHeader("Authorization", authString), Expect.`100-continue`, Accept(PredefinedMediaRange("*/*")))
+        headers = List(RawHeader("Authorization", authString), Expect.`100-continue`, Accept(MediaRanges.`*/*`))
+        request = HttpRequest(POST, target, headers = headers, entity = entity)
         response <- Http().singleRequest(request)
         responseBodyAsString <- Unmarshal(response).to[String]
       } yield {
