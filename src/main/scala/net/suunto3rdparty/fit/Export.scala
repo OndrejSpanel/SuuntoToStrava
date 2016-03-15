@@ -67,12 +67,12 @@ object Export {
     } {
       val msg: Option[Mesg] = ev match {
         case gps: GPSPoint =>
-          val myMsg = new CoursePointMesg()
-          val longLatScale = 1000000
-          val instantMs = evGroup._1.toInstant.getEpochSecond * 1000 + evGroup._1.toInstant.getNano / 1000000
-          myMsg.setTimestamp(new DateTime(instantMs))
-          myMsg.setPositionLong((gps.longitude*longLatScale).toInt)
-          myMsg.setPositionLat((gps.latitude*longLatScale).toInt)
+          val myMsg = new RecordMesg()
+          val longLatScale = (1L<<31).toDouble/180
+          val instant = evGroup._1.toInstant.getEpochSecond - DateTime.OFFSET / 1000.0 + evGroup._1.toInstant.getNano / 1000000000.0
+          myMsg.setTimestamp(new DateTime(0, instant))
+          myMsg.setPositionLong((gps.longitude * longLatScale).toInt)
+          myMsg.setPositionLat((gps.latitude * longLatScale).toInt)
           Some(myMsg)
         case hr: Int =>
           None
