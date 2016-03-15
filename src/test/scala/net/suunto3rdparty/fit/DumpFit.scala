@@ -21,7 +21,13 @@ class DumpFit extends FlatSpec with Matchers {
           println(s"${mesg.getName}")
           val fields = mesg.getFields.asScala
           for (f <- fields) {
-            println(s"  ${f.getName}:${f.getValue}")
+            f.getName match {
+              case "timestamp" =>
+                val time = new DateTime(f.getLongValue)
+                println(s"  ${f.getName}:${time.toString}")
+              case _ =>
+                println(s"  ${f.getName}:${f.getValue}")
+            }
           }
         }
       }
