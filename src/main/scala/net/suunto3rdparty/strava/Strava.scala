@@ -7,6 +7,8 @@ import scala.util.parsing.json.JSON
 import scalaj.http.Http
 
 class StravaAPI(appId: Int, clientSecret: String, code: String) {
+  // see https://strava.github.io/api/
+
   val stravaRoot = "https://www.strava.com/api/v3/"
 
   lazy val authString: Option[String] = {
