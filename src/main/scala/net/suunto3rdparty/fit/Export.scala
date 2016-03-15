@@ -3,25 +3,19 @@ package fit
 
 import com.garmin.fit
 import com.garmin.fit._
-import java.io.File
+import java.io.{File, OutputStream}
 import java.time.ZonedDateTime
 
 import Util._
 
 import scala.collection.immutable.SortedMap
 
-trait EncoderCloser {
-  def close()
-}
-
 object Export {
-  type Encoder = MesgListener with MesgDefinitionListener with EncoderCloser
+  type Encoder = MesgListener with MesgDefinitionListener
 
-  def createEncoder(time: ZonedDateTime): Encoder = {
+  private def createFileEncoder(time: ZonedDateTime): FileEncoder = {
     val file = new File("testoutput_" + time.toFileName + ".fit")
-    val encoder = new FileEncoder(file) with EncoderCloser
-
-    encoder
+    new FileEncoder(file)
   }
 
   def encodeHeader(encoder: Encoder): Unit = {
@@ -37,7 +31,23 @@ object Export {
 
   def apply(move: Move): Unit = {
 
-    val encoder = createEncoder(move.streams.head._2.startTime)
+    val encoder = createFileEncoder(move.streams.head._2.startTime)
+    toEncoder(move, encoder)
+
+    encoder.close()
+
+  }
+
+  def toBuffer(move: Move): Array[Byte] = {
+    val encoder = new BufferEncoder()
+
+    toEncoder(move, encoder)
+
+    encoder.close()
+  }
+
+  def toEncoder(move: Move, encoder: Encoder): Unit = {
+
     // start by writing a header
     encodeHeader(encoder)
 
@@ -97,9 +107,6 @@ object Export {
       }
       msg.foreach(encoder.onMesg)
     }
-
-    // file needs closing
-    encoder.close()
 
   }
   def toTimestamp(zonedTime: ZonedDateTime): DateTime = {

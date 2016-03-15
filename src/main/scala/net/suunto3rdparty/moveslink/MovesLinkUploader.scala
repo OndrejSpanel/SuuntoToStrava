@@ -3,6 +3,7 @@ package moveslink
 
 import java.io.File
 
+import strava.StravaAPIThisApp
 import org.apache.log4j.Logger
 
 object MovesLinkUploader {
@@ -14,6 +15,8 @@ object MovesLinkUploader {
   }
 
   def uploadXMLFiles(index: MoveIndex): Unit = {
+    val api = new StravaAPIThisApp
+
     val folder = getDataFolder
     val files = folder.listFiles
     var usedGPS = Set[Move]()
@@ -32,6 +35,7 @@ object MovesLinkUploader {
           // if no GPS data found, upload the move without them
           println(s"  GPS merged: ${gpsData.map(_.toLog).mkString(", ")}")
           fit.Export(merged)
+          api.upload(merged)
         }
       }
     }
