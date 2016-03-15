@@ -22,10 +22,11 @@ object MovesLinkUploader {
       if (fileName.startsWith("quest_") && fileName.endsWith(".xml")) {
         log.info("Analyzing " + fileName)
         val moves = XMLParser.parse(file)
-        moves.foreach{ move =>
+        val validMoves = moves.filter(_.streams.contains(StreamHRWithDist))
+        validMoves.foreach{ move =>
           println(s"Quest HR: ${move.toLog}")
           // upload each move separately
-          val (gpsMoves, gpsData) = index.listOverlapping(move.streams(StreamHR), StreamGPS).unzip
+          val (gpsMoves, gpsData) = index.listOverlapping(move.streams(StreamHRWithDist), StreamGPS).unzip
           usedGPS = usedGPS ++ gpsMoves
           val merged = gpsData.foldLeft(move)(_ addStream _)
           // if no GPS data found, upload the move without them

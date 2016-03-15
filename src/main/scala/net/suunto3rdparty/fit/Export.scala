@@ -76,13 +76,24 @@ object Export {
           myMsg.setPositionLong((gps.longitude * longLatScale).toInt)
           myMsg.setPositionLat((gps.latitude * longLatScale).toInt)
           Some(myMsg)
+        case hr: HRPoint =>
+          val myMsg = new RecordMesg()
+          if (hr.hr!=0) {
+            myMsg.setTimestamp(toTimestamp(evGroup._1))
+            myMsg.setHeartRate(hr.hr.toShort)
+            myMsg.setDistance(hr.dist.toFloat)
+            Some(myMsg)
+          } else None
         case hr: Int =>
           val myMsg = new RecordMesg()
           myMsg.setTimestamp(toTimestamp(evGroup._1))
           myMsg.setHeartRate(hr.toShort)
           Some(myMsg)
         case dist: Double =>
-          None
+          val myMsg = new RecordMesg()
+          myMsg.setTimestamp(toTimestamp(evGroup._1))
+          myMsg.setDistance(dist.toFloat)
+          Some(myMsg)
       }
       msg.foreach(encoder.onMesg)
     }
