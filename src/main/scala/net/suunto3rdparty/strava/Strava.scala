@@ -1,14 +1,14 @@
 package net.suunto3rdparty
 package strava
 
-import java.io.{ByteArrayOutputStream, File}
+import java.io._
 
 import fit.Export
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.client.fluent.{Form, Request}
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.mime.MultipartEntityBuilder
-import org.apache.http.impl.client.{DefaultHttpClient, HttpClientBuilder}
+import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.http.util.EntityUtils
 
 import scala.util.parsing.json.JSON
@@ -79,22 +79,6 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
     }
   }
 
-  /*
-
-  def createEntity(file: File): Future[RequestEntity] = {
-    require(file.exists())
-    val formData =
-      Multipart.FormData(
-        Source.single(
-          Multipart.FormData.BodyPart(
-            "test",
-            HttpEntity(MediaTypes.`application/octet-stream`, file.length(), SynchronousFileSource(file, chunkSize = 100000)), // the chunk size here is currently critical for performance
-            Map("filename" -> file.getName))))
-    Marshal(formData).to[RequestEntity]
-  }
-  */
-
-
   def athlete: Option[String] = {
     val response = authString.map { authString =>
       val request = Request.Get(buildURI("athlete")).addHeader("Authorization", authString)
@@ -117,10 +101,6 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
   def uploadRawFile(moveBytes: Array[Byte]): Option[Int] = {
     val response = authString.flatMap { authString =>
 
-      /*val target = Request.Post(buildURI("uploads"))
-        .addHeader("Authorization", authString)
-        .bodyForm(Form.form().build())*/
-
       val body = MultipartEntityBuilder.create()
         .addTextBody("activity_type", "run")
         .addTextBody("data_type", "fit")
@@ -137,7 +117,9 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
       val client = HttpClientBuilder.create().build()
       val response = client.execute(httpPost)
       val result = response.getEntity
-      val resultString = result.getContent.toString
+      val resultCode = response.getStatusLine.getStatusCode
+
+      val resultString = EntityUtils.toString(result)
 
       EntityUtils.consume(result)
       client.close()
@@ -195,7 +177,7 @@ object StravaAccess extends App {
   }
 
   // try uploading a fit file
-  val toUpload = getClass.getResourceAsStream("/uploadTest.fit")
+  val toUpload = getClass.getResourceAsStream("/decodeTest.fit")
 
   if (toUpload != null) {
     val buffer = Array.ofDim[Byte](4096)
