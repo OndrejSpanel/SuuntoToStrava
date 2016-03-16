@@ -1,7 +1,7 @@
 package net.suunto3rdparty
 package strava
 
-import java.io.{ByteArrayInputStream, File}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File}
 
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
@@ -22,7 +22,7 @@ import scala.concurrent.Await
 case class StravaAPIParams(appId: Int, clientSecret: String, code: String)
 
 object StravaAPI {
-  val localTest = true
+  val localTest = false
 
   val stravaSite = "www.strava.com"
   val stravaRootURL = "/api/v3/"
@@ -36,10 +36,15 @@ object StravaAPI {
   class CC[T] {
     def unapply(a: Option[Any]): Option[T] = a.map(_.asInstanceOf[T])
   }
+
   object M extends CC[Map[String, Any]]
+
   object L extends CC[List[Any]]
+
   object S extends CC[String]
+
   object D extends CC[Double]
+
   object B extends CC[Boolean]
 
   def buildPostData(params: (String, String)*) = {
@@ -59,7 +64,8 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  lazy val authString: Option[String] = if (localTest) Some("Bearer xxxxx") else {
+  lazy val authString: Option[String] = if (localTest) Some("Bearer xxxxx")
+  else {
     val target = buildURI("oauth/token")
     val formData = FormData(
       ("client_id", appId.toString),
@@ -135,8 +141,12 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
     * @return upload id (use to check status with uploads/:id)
     * */
   def upload(move: Move): Option[Int] = {
-    val response = authString.flatMap{ authString =>
-      val moveBytes = Export.toBuffer(move)
+    val moveBytes = Export.toBuffer(move)
+    uploadRawFile(moveBytes)
+  }
+
+  def uploadRawFile(moveBytes: Array[Byte]): Option[Int] = {
+    val response = authString.flatMap { authString =>
       val is = new ByteArrayInputStream(moveBytes)
 
       val target = buildURI("uploads")
@@ -218,5 +228,22 @@ object StravaAccess extends App {
 
   for (athlete <- api.athlete) {
     println(athlete)
+  }
+
+  // try uploading a fit file
+  val toUpload = getClass.getResourceAsStream("/uploadTest.fit")
+
+  if (toUpload != null) {
+    val buffer = Array.ofDim[Byte](4096)
+    val ous = new ByteArrayOutputStream()
+    var read = 0
+    do {
+      read = toUpload.read(buffer)
+      if (read > 0) ous.write(buffer, 0, read)
+    } while (read > 0)
+    ous.close()
+    toUpload.close()
+
+    api.uploadRawFile(ous.toByteArray)
   }
 }
