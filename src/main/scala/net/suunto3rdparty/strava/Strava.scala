@@ -6,10 +6,11 @@ import java.io.{ByteArrayInputStream, File}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.{Sink, Source}
 import HttpMethods._
 import akka.actor.ActorSystem
 import akka.http.scaladsl.marshalling.Marshal
+import akka.http.scaladsl.model.MediaTypes.multipart
 import akka.http.scaladsl.model.headers.{Accept, Expect, RawHeader}
 import akka.stream.ActorMaterializer
 import fit.Export
@@ -21,7 +22,7 @@ import scala.concurrent.Await
 case class StravaAPIParams(appId: Int, clientSecret: String, code: String)
 
 object StravaAPI {
-  val localTest = false
+  val localTest = true
 
   val stravaSite = "www.strava.com"
   val stravaRootURL = "/api/v3/"
@@ -146,7 +147,8 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
         ("private", "1")
       )
       val parsBodyPart = pars.map { kv =>
-        Multipart.FormData.BodyPart.Strict(kv._1, HttpEntity(kv._2))
+        val contentType = ContentType(MediaTypes.`multipart/form-data`, () => HttpCharsets.`US-ASCII`)
+        Multipart.FormData.BodyPart.Strict(kv._1, HttpEntity(contentType, kv._2.getBytes))
       }
       val filename = Map("filename" ->"file.fit")
       val fileBodyPart = Multipart.FormData.BodyPart.Strict("file", HttpEntity(ContentTypes.`application/octet-stream`, moveBytes), additionalDispositionParams = filename)
