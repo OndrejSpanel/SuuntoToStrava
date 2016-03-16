@@ -1,13 +1,12 @@
 package net.suunto3rdparty
 package strava
 
-import java.io._
+import java.io.{ByteArrayOutputStream, File, IOException}
 
 import fit.Export
-import org.apache.http.client.HttpResponseException
+import http.MultipartUtility
+
 import org.apache.http.client.fluent.{Form, Request}
-import org.apache.http.entity.ContentType
-import org.apache.http.entity.mime.MultipartEntityBuilder
 
 import scala.util.parsing.json.JSON
 
@@ -97,26 +96,36 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
   }
 
   def uploadRawFile(moveBytes: Array[Byte]): Option[Int] = {
-    try {
-      authString.flatMap { authString =>
+    val response = authString.flatMap { authString =>
 
-        val body = MultipartEntityBuilder.create()
-          .addTextBody("activity_type", "run")
-          .addTextBody("data_type", "fit")
-          .addTextBody("private", "1")
-          .addBinaryBody("file", moveBytes, ContentType.APPLICATION_OCTET_STREAM, "file.fit")
-          .build()
+      val charset = "UTF-8"
+      val requestURL = buildURI("uploads")
 
-        val request = Request.Post(buildURI("uploads"))
-          .useExpectContinue()
-          .addHeader("Authorization", authString)
-          .addHeader("Accept", "*/*")
-          .body(body)
+      val response = try {
+        val multipart = new MultipartUtility(requestURL, charset)
 
-        val response = request.execute()
-        val content = response.returnContent()
+        multipart.addHeaderField("Authorization", authString)
+        multipart.addHeaderField("Expect", "100-continue")
+        multipart.addHeaderField("Accept", "*/*")
 
-        val resultString = content.asString()
+        multipart.start()
+
+        multipart.addFormField("activity_type", "run")
+        multipart.addFormField("data_type", "fit")
+        multipart.addFormField("private", "1")
+
+        multipart.addBytePart("file", "file.fit", moveBytes)
+        val response = multipart.finish
+        response
+      }
+      catch {
+        case ex: IOException =>
+          ex.printStackTrace()
+          ""
+      }
+
+
+      val resultString = response
 
         // we expect to receive 201
         // TODO: check if result is OK
@@ -175,9 +184,11 @@ class StravaAPIThisApp extends StravaAPI(StravaAPIThisApp.getAPIParams) {
 object StravaAccess extends App {
   val api = new StravaAPIThisApp
 
+  /*
   for (athlete <- api.athlete) {
     println(athlete)
   }
+  */
 
   // try uploading a fit file
   val toUpload = getClass.getResourceAsStream("/uploadTest.fit")
