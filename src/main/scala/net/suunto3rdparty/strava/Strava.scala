@@ -1,23 +1,17 @@
 package net.suunto3rdparty
 package strava
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File}
+import java.io.{ByteArrayOutputStream, File}
 
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.scaladsl.{Sink, Source}
-import HttpMethods._
-import akka.actor.ActorSystem
-import akka.http.scaladsl.marshalling.Marshal
-import akka.http.scaladsl.model.MediaTypes.multipart
-import akka.http.scaladsl.model.headers.{Accept, Expect, RawHeader}
-import akka.stream.ActorMaterializer
 import fit.Export
+import org.apache.http.client.methods.HttpPost
+import org.apache.http.client.fluent.{Form, Request}
+import org.apache.http.entity.ContentType
+import org.apache.http.entity.mime.MultipartEntityBuilder
+import org.apache.http.impl.client.{DefaultHttpClient, HttpClientBuilder}
+import org.apache.http.util.EntityUtils
 
-import scala.concurrent.duration.Duration
 import scala.util.parsing.json.JSON
-import scala.concurrent.Await
 
 case class StravaAPIParams(appId: Int, clientSecret: String, code: String)
 
@@ -28,9 +22,9 @@ object StravaAPI {
   val stravaRootURL = "/api/v3/"
   val stravaRoot = "https://" + stravaSite + stravaRootURL
 
-  def buildURI(path: String): Uri = {
-    if (!localTest) Uri(scheme = "https", authority = Uri.Authority(Uri.Host(stravaSite)), path = Uri.Path(stravaRootURL + path))
-    else Uri(scheme = "http", authority = Uri.Authority(Uri.Host("localhost"), port = 8080), path = Uri.Path("/JavaEE-war/webresources/generic/"))
+  def buildURI(path: String): String = {
+    if (!localTest) stravaRoot + path
+    else "http://localhost/JavaEE-war/webresources/generic/"
   }
 
   class CC[T] {
@@ -59,44 +53,30 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
   protected def this(params: StravaAPIParams) = this(params.appId, params.clientSecret, params.code)
   // see https://strava.github.io/api/
 
-  implicit val system = ActorSystem()
-  implicit val materializer = ActorMaterializer()
-
-  import scala.concurrent.ExecutionContext.Implicits.global
-
   lazy val authString: Option[String] = if (localTest) Some("Bearer xxxxx")
   else {
-    val target = buildURI("oauth/token")
-    val formData = FormData(
-      ("client_id", appId.toString),
-      ("client_secret", clientSecret),
-      ("code", code)
-    )
-    val request = HttpRequest(POST, target, entity = formData.toEntity)
+    val request = Request.Post(buildURI("oauth/token"))
+      .bodyForm(
+        Form.form()
+          .add("client_id", appId.toString)
+          .add("client_secret", clientSecret)
+          .add("code", code).build()
+      )
 
-    val result = for {
-      response <- Http().singleRequest(request)
-      responseBodyAsString <- Unmarshal(response).to[String]
-    } yield {
-      val tokenString = responseBodyAsString
+    val result = request.execute().returnContent()
 
-      response.entity.dataBytes.runWith(Sink.ignore)
+    val resultJson = JSON.parseFull(result.asString())
 
-      val resultJson = JSON.parseFull(tokenString)
-
-      Option(resultJson).flatMap {
-        case M(map) =>
-          map.get("access_token") match {
-            case S(accessToken) =>
-              Some("Bearer " + accessToken)
-            case _ =>
-              None
-          }
-        case _ => None
-      }
+    Option(resultJson).flatMap {
+      case M(map) =>
+        map.get("access_token") match {
+          case S(accessToken) =>
+            Some("Bearer " + accessToken)
+          case _ =>
+            None
+        }
+      case _ => None
     }
-
-    Await.result(result, Duration.Inf)
   }
 
   /*
@@ -117,23 +97,12 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
 
   def athlete: Option[String] = {
     val response = authString.map { authString =>
-      val result = {
-        val target = buildURI("athlete")
-        val http = HttpRequest(GET, uri = target, headers = List(RawHeader("Authorization", authString)))
+      val request = Request.Get(buildURI("athlete")).addHeader("Authorization", authString)
 
-        for {
-          response <- Http().singleRequest(http)
-          responseBodyAsString <- Unmarshal(response).to[String]
-        } yield {
-          response.entity.dataBytes.runWith(Sink.ignore)
-          responseBodyAsString
-        }
-      }
-
-      Await.result(result, Duration.Inf)
+      val result = request.execute().returnContent()
+      result.asString()
 
     }
-
     response
   }
 
@@ -147,41 +116,35 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
 
   def uploadRawFile(moveBytes: Array[Byte]): Option[Int] = {
     val response = authString.flatMap { authString =>
-      val is = new ByteArrayInputStream(moveBytes)
 
-      val target = buildURI("uploads")
+      /*val target = Request.Post(buildURI("uploads"))
+        .addHeader("Authorization", authString)
+        .bodyForm(Form.form().build())*/
 
-      val pars = List(
-        ("activity_type", "run"), //
-        ("data_type", "fit"),
-        ("private", "1")
-      )
-      val parsBodyPart = pars.map { kv =>
-        Multipart.FormData.BodyPart.Strict(kv._1, HttpEntity(ContentTypes.NoContentType, kv._2.getBytes))
-      }
-      val filename = Map("filename" -> "file.fit")
-      val fileBodyPart = Multipart.FormData.BodyPart.Strict("file", HttpEntity(ContentTypes.`application/octet-stream`, moveBytes), additionalDispositionParams = filename)
+      val body = MultipartEntityBuilder.create()
+        .addTextBody("activity_type", "run")
+        .addTextBody("data_type", "fit")
+        .addTextBody("private", "1")
+        .addBinaryBody("file", moveBytes, ContentType.APPLICATION_OCTET_STREAM, "file.fit")
+        .build()
 
-      val multipartForm = Multipart.FormData.Strict(parsBodyPart :+ fileBodyPart)
+      val httpPost = new HttpPost(buildURI("uploads"))
+      httpPost.setEntity(body)
+      httpPost.addHeader("Authorization", authString)
+      httpPost.addHeader("Expect","100-continue")
+      httpPost.addHeader("Accept", "*/*")
 
-      val multipartEntity = Marshal(multipartForm).to[RequestEntity]
+      val client = HttpClientBuilder.create().build()
+      val response = client.execute(httpPost)
+      val result = response.getEntity
+      val resultString = result.getContent.toString
 
-      val uploadRequest = for {
-        entity <- multipartEntity
-        //headers = List(RawHeader("Authorization", authString), Expect.`100-continue`, Accept(PredefinedMediaRange("*/*")))
-        headers = List(RawHeader("Authorization", authString), Expect.`100-continue`, Accept(MediaRanges.`*/*`))
-        request = HttpRequest(POST, target, headers = headers, entity = entity)
-        response <- Http().singleRequest(request)
-        responseBodyAsString <- Unmarshal(response).to[String]
-      } yield {
-        println(entity)
-        println(request)
-        responseBodyAsString
-      }
-      val result = Await.result(uploadRequest, Duration.Inf)
+      EntityUtils.consume(result)
+      client.close()
+
       // TODO: check if result is OK
       // we expect to receive 201
-      val resultJson = JSON.parseFull(result)
+      val resultJson = JSON.parseFull(resultString)
       val uploadId = Option(resultJson).flatMap {
         case M(map) =>
           map.get("id") match {
@@ -198,6 +161,7 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
     }
     response
   }
+
 }
 
 object StravaAPIThisApp {
