@@ -147,10 +147,9 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
         ("private", "1")
       )
       val parsBodyPart = pars.map { kv =>
-        val contentType = ContentType(MediaTypes.`multipart/form-data`, () => HttpCharsets.`US-ASCII`)
-        Multipart.FormData.BodyPart.Strict(kv._1, HttpEntity(contentType, kv._2.getBytes))
+        Multipart.FormData.BodyPart.Strict(kv._1, HttpEntity(ContentTypes.NoContentType, kv._2.getBytes))
       }
-      val filename = Map("filename" ->"file.fit")
+      val filename = Map("filename" -> "file.fit")
       val fileBodyPart = Multipart.FormData.BodyPart.Strict("file", HttpEntity(ContentTypes.`application/octet-stream`, moveBytes), additionalDispositionParams = filename)
 
       val multipartForm = Multipart.FormData.Strict(parsBodyPart :+ fileBodyPart)
