@@ -44,7 +44,7 @@ object XMLParser {
     }
 
     val hrStream = new DataStreamHRWithDist(header.startTime, header.durationMs, SortedMap(timedMap:_*))
-    new Move(header, hrStream, hrStream)
+    new Move(header, Map(hrStream.streamType ->hrStream))
   }
 
   def parseHeader(headerStr: Node) = {
