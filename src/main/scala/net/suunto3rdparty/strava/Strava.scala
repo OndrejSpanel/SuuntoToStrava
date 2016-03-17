@@ -4,6 +4,7 @@ package strava
 import java.io._
 
 import fit.Export
+import org.apache.http.client.HttpResponseException
 import org.apache.http.client.fluent.{Form, Request}
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.mime.MultipartEntityBuilder
@@ -117,13 +118,14 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
 
         val resultString = content.asString()
 
-        // TODO: check if result is OK
         // we expect to receive 201
+        // TODO: check if result is OK
+
         val resultJson = JSON.parseFull(resultString)
         val uploadId = Option(resultJson).flatMap {
           case M(map) =>
             map.get("id") match {
-              case S(id) =>
+              case D(id) =>
                 Some(id.toInt)
               case _ =>
                 None
@@ -135,6 +137,10 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
 
       }
     } catch {
+      case ex: HttpResponseException =>
+        // we expect to receive error 400 - duplicate activity
+        println(ex.getMessage)
+        None
       case ex: Exception =>
         ex.printStackTrace()
         None

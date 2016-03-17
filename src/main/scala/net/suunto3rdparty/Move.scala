@@ -6,7 +6,7 @@ import Util._
 
 import scala.collection.immutable.SortedMap
 
-case class Header(startTime: ZonedDateTime = ZonedDateTime.now, duration: Int = 0, calories: Int = 0, distance: Int = 0)
+case class Header(startTime: ZonedDateTime = ZonedDateTime.now, durationMs: Int = 0, calories: Int = 0, distance: Int = 0)
 case class GPSPoint(latitude: Double, longitude: Double, elevation: Option[Int])
 case class HRPoint(hr: Int, dist: Double)
 

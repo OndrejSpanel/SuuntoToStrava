@@ -73,7 +73,7 @@ object XMLParser {
       val dateTime = (header \ "DateTime")(0).text
       Header(
         startTime = timeToUTC(ZonedDateTime.parse(dateTime, dateFormatNoZone)),
-        duration = ((header \ "Duration")(0).text.toDouble * 1000).toInt,
+        durationMs = ((header \ "Duration")(0).text.toDouble * 1000).toInt,
         calories = Try(Util.kiloCaloriesFromKilojoules((header \ "Energy")(0).text.toDouble)).getOrElse(0),
         distance = distance
       )
@@ -164,12 +164,12 @@ object XMLParser {
 
     val hrDistStream = if (hrSeq.size == distanceSeq.size && hrSeq.exists(_ != 0)) {
       val hrWithDist = (hrSeq zip distanceSeq).map { case (hr,d) => HRPoint(hr, d) }
-      new DataStreamHRWithDist(header.startTime, header.duration, SortedMap(timeSeq zip hrWithDist:_*))
+      new DataStreamHRWithDist(header.startTime, header.durationMs, SortedMap(timeSeq zip hrWithDist:_*))
     } else {
-      new DataStreamDist(header.startTime, header.duration, SortedMap(timeSeq zip distanceSeq:_*))
+      new DataStreamDist(header.startTime, header.durationMs, SortedMap(timeSeq zip distanceSeq:_*))
     }
 
-    val gpsStream = new DataStreamGPS(header.startTime, header.duration, SortedMap(trackPoints:_*))
+    val gpsStream = new DataStreamGPS(header.startTime, header.durationMs, SortedMap(trackPoints:_*))
 
     new Move(header, gpsStream, hrDistStream)
   }

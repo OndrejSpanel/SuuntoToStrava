@@ -33,7 +33,7 @@ object XMLParser {
       heartRate.toInt
     }
 
-    val timeRange = 0 until header.duration by 10000
+    val timeRange = 0 until header.durationMs by 10000
 
     def timeMs(ms: Int) = header.startTime.plusNanos(ms*1000000L)
 
@@ -43,7 +43,7 @@ object XMLParser {
       timeMs(t) -> s
     }
 
-    val hrStream = new DataStreamHRWithDist(header.startTime, header.duration, SortedMap(timedMap:_*))
+    val hrStream = new DataStreamHRWithDist(header.startTime, header.durationMs, SortedMap(timedMap:_*))
     new Move(header, hrStream, hrStream)
   }
 

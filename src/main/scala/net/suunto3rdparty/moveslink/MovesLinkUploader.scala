@@ -35,7 +35,10 @@ object MovesLinkUploader {
           // if no GPS data found, upload the move without them
           println(s"  GPS merged: ${gpsData.map(_.toLog).mkString(", ")}")
           fit.Export(merged)
-          api.upload(merged)
+          // upload only non-trivial results
+          if (merged.header.distance > 10 && merged.header.durationMs > 10000) {
+            api.upload(merged)
+          }
         }
       }
     }
