@@ -29,6 +29,11 @@ object Util {
     override def compare(x: ZonedDateTime, y: ZonedDateTime): Int = x.compareTo(y)
   }
 
+  implicit class MinMaxOptTraversable[T](val seq: Traversable[T]) extends AnyVal {
+    def minOpt(implicit ev: Ordering[T]): Option[T] = if (seq.isEmpty) None else Some(seq.min)
+    def maxOpt(implicit ev: Ordering[T]): Option[T] = if (seq.isEmpty) None else Some(seq.max)
+  }
+
   def timeToUTC(dateTime: ZonedDateTime) = {
     ZonedDateTime.ofInstant(dateTime.toInstant, ZoneOffset.UTC)
   }

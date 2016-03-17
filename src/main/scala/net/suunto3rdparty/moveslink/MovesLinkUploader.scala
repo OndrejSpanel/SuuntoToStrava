@@ -2,7 +2,6 @@ package net.suunto3rdparty
 package moveslink
 
 import java.io.File
-import java.time.ZonedDateTime
 
 import strava.StravaAPIThisApp
 import Util._
@@ -41,14 +40,13 @@ object MovesLinkUploader {
 
     // create overlapping timelines Quest / GPS
 
-    val timelineGPS = index.toList.sorted
-    val timelineHR = questMoves.toList.sorted
+    val timelineGPS = index.toList.filterNot(_.isAlmostEmpty(30)).sorted
+    val timelineHR = questMoves.toList.filterNot(_.isAlmostEmpty(30)).sorted
 
     @tailrec
     def processTimelines(lineGPS: List[Move], lineHRD: List[Move], processed: List[Move]): List[Move] = {
-      def prependNonEmpty(move: Move, list: List[Move]) = {
-        if (move.streams.exists(_._2.stream.nonEmpty) && move.endTime > move.startTime.plusSeconds(10)) move +: list
-        else list
+      def prependNonEmpty(move: Option[Move], list: List[Move]): List[Move] = {
+        move.find(!_.isAlmostEmpty(30)).toList ++ list
       }
 
       if (lineGPS.isEmpty) {
@@ -56,26 +54,25 @@ object MovesLinkUploader {
           processed
         } else {
           // HR moves without GPS info
-          processTimelines(lineGPS, lineHRD.tail, prependNonEmpty(lineHRD.head, processed))
+          processTimelines(lineGPS, lineHRD.tail, prependNonEmpty(lineHRD.headOption, processed))
         }
       } else if (lineHRD.isEmpty) {
-        processTimelines(lineGPS.tail, lineHRD, prependNonEmpty(lineGPS.head, processed))
+        processTimelines(lineGPS.tail, lineHRD, prependNonEmpty(lineGPS.headOption, processed))
       } else {
         val hrdMove = lineHRD.head
         val gpsMove = lineGPS.head
 
-        val gpsBeg = gpsMove.startTime
-        val gpsEnd = gpsMove.endTime
+        val gpsBeg = gpsMove.startTime.get
+        val gpsEnd = gpsMove.endTime.get
 
-        val hrdBeg = hrdMove.startTime
-        val hrdEnd = hrdMove.endTime
+        val hrdBeg = hrdMove.startTime.get
+        val hrdEnd = hrdMove.endTime.get
 
-        // TODO: handle small times
         if (gpsBeg >= hrdEnd) {
           // no match for hrd
-          processTimelines(lineGPS, lineHRD.tail, prependNonEmpty(lineHRD.head, processed))
+          processTimelines(lineGPS, lineHRD.tail, prependNonEmpty(lineHRD.headOption, processed))
         } else if (hrdBeg > gpsEnd) {
-          processTimelines(lineGPS.tail, lineHRD, prependNonEmpty(lineGPS.head, processed))
+          processTimelines(lineGPS.tail, lineHRD, prependNonEmpty(lineGPS.headOption, processed))
         } else {
           // some overlap, handle it
           if (gpsBeg > hrdBeg) {
@@ -91,9 +88,8 @@ object MovesLinkUploader {
             // same beginning - drive by HRD
             // use from GPS only as needed by HRD
             val (takeGPS, leftGPS) = gpsMove.takeUntil(hrdEnd)
-            val gpsStream = takeGPS.streams(StreamGPS)
-            val merged = hrdMove.addStream(gpsStream)
-            println(s"Merged GPS ${gpsStream.toLog} into ${hrdMove.toLog}")
+            val merged = takeGPS.map(_.streams(StreamGPS)).map(hrdMove.addStream)
+            println(s"Merged GPS ${takeGPS.map(_.toLog)} into ${hrdMove.toLog}")
 
             processTimelines(prependNonEmpty(leftGPS, lineGPS.tail), prependNonEmpty(merged, lineHRD.tail), processed)
           }
@@ -103,18 +99,17 @@ object MovesLinkUploader {
       }
     }
 
-    val toUpload = processTimelines(timelineGPS, timelineHR, Nil)
+    val toUpload = processTimelines(timelineGPS, timelineHR, Nil).reverse
 
     toUpload.foreach { move =>
       println(s"Uploading: ${move.toLog}")
       // upload each move separately
       fit.Export(move)
+      // TODO: when activities are close enough and share a common HR move, merge them
       // upload only non-trivial results
-      /*
-      if (move.header.distance > 10 && move.header.durationMs > 10000) {
+      if (!move.isAlmostEmpty(120)) {
         api.upload(move)
       }
-      */
     }
   }
 

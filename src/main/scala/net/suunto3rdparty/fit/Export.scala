@@ -30,11 +30,12 @@ object Export {
   }
 
   def apply(move: Move): Unit = {
+    for (time <- move.streams.head._2.startTime) {
+      val encoder = createFileEncoder(time)
+      toEncoder(move, encoder)
 
-    val encoder = createFileEncoder(move.streams.head._2.startTime)
-    toEncoder(move, encoder)
-
-    encoder.close()
+      encoder.close()
+    }
 
   }
 
