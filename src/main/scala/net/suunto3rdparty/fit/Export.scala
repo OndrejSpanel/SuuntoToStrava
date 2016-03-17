@@ -18,7 +18,15 @@ object Export {
     new FileEncoder(file)
   }
 
-  def encodeHeader(encoder: Encoder): Unit = {
+  object suuntoToFit {
+    def activityType(act: Int): (ActivityType, ActivitySubtype) = act match {
+      case 82 => (ActivityType.RUNNING, ActivitySubtype.TRACK)
+      case 5 => (ActivityType.CYCLING, ActivitySubtype.TRACK_CYCLING)
+      case _ => (ActivityType.GENERIC, ActivitySubtype.GENERIC)
+    }
+  }
+
+  def encodeHeader(encoder: Encoder, header: MoveHeader): Unit = {
     //Generate FileIdMessage
     val fileIdMesg = new FileIdMesg
     fileIdMesg.setManufacturer(Manufacturer.SUUNTO)
@@ -50,7 +58,7 @@ object Export {
   def toEncoder(move: Move, encoder: Encoder): Unit = {
 
     // start by writing a header
-    encodeHeader(encoder)
+    encodeHeader(encoder, move.header)
 
     // write all data, sorted by time
 

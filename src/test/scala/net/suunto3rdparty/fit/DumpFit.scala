@@ -3,9 +3,7 @@ package fit
 
 import java.io.InputStream
 
-import com.garmin.fit
 import com.garmin.fit._
-import java.time.ZonedDateTime
 
 import scala.collection.JavaConverters._
 import org.scalatest.{FlatSpec, Matchers}
