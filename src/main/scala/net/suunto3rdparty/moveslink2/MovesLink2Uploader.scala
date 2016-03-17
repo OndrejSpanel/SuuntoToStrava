@@ -5,10 +5,9 @@ import java.io.File
 
 import org.apache.log4j.Logger
 
+object MovesLink2Uploader {
+  private val log = Logger.getLogger(getClass)
 
-object MovesLink2Uploader {private val log = Logger.getLogger(classOf[MovesLink2Uploader])}
-
-class MovesLink2Uploader {
   private def getDataFolder: File = {
     val folderName = "Moveslink2"
     val suuntoHome = Util.getSuuntoHome
@@ -24,33 +23,24 @@ class MovesLink2Uploader {
       MovesLink2Uploader.log.info("Cannot find MovesLink2 data folder at " + folder.getAbsolutePath)
       return false
     }
-    if (!folder.canWrite) {
-      MovesLink2Uploader.log.error("Cannot write to moveslink2 data folder at " + folder.getAbsolutePath)
-      return false
-    }
     true
   }
 
-  def uploadXMLFiles(): Unit = {
+  def readXMLFiles(): MoveIndex = {
+    val index = new MoveIndex
     val folder = getDataFolder
-    //val notRunFolder = new File(folder, "NotRun")
-    //val uploadedMovesFolder = new File(folder, "Uploaded")
-    //notRunFolder.mkdir
-    //uploadedMovesFolder.mkdir
     val files = folder.listFiles
     for (file <- files) {
       val fileName = file.getName.toLowerCase
       if ((fileName.startsWith("log-") && fileName.endsWith(".xml")) || fileName.endsWith(".sml")) {
         MovesLink2Uploader.log.info("Analyzing " + fileName)
         val parser = XMLParser.parse(file)
-        if (parser.isSuccess) {
-          //uploadMoveToNike(nikePlus, parser.getSuuntoMove)
-          //file.renameTo(new File(uploadedMovesFolder, file.getName))
-        }
-        else {
-          //file.renameTo(new File(notRunFolder, file.getName))
+        parser.foreach { move =>
+          index.add(move)
+          println(s"GPS: ${move.toLog}")
         }
       }
     }
+    index
   }
 }

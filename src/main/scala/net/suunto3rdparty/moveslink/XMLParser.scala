@@ -2,23 +2,28 @@ package net.suunto3rdparty
 package moveslink
 
 import java.io.File
+import java.time.{ZoneId, ZoneOffset, ZonedDateTime}
+import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
-import scala.xml._
 
+import scala.xml._
 import org.apache.log4j.Logger
+import Util._
+
+import scala.collection.immutable.SortedMap
 
 object XMLParser {
   private val log = Logger.getLogger(XMLParser.getClass)
 
-  def parseSamples(samples: Node): SuuntoMove = {
+  def parseSamples(header: Header, samples: Node): Move = {
     val distanceStr = (samples \ "Distance")(0).text
     val heartRateStr = (samples \ "HR")(0).text
-    var currentSum: Int = 0
+    var currentSum: Double = 0
     val distanceSamples = for {
       distance <- distanceStr.split(" ")
       if !distance.trim.isEmpty
     } yield {
-      currentSum += distance.toInt
+      currentSum += distance.toDouble
       currentSum
     }
     val heartRateSamples = for {
@@ -27,27 +32,47 @@ object XMLParser {
     } yield {
       heartRate.toInt
     }
-    new SuuntoMove(distanceSamples, heartRateSamples)
+
+    val timeRange = 0 until header.duration by 10000
+
+    def timeMs(ms: Int) = header.startTime.plusNanos(ms*1000000L)
+
+    val distMap = (distanceSamples zip timeRange).map { case (s,t) =>
+      timeMs(t) -> s
+    }
+    val hrMap = (heartRateSamples zip timeRange).map { case (s,t) =>
+      timeMs(t) -> s
+    }
+
+
+    val hrStream = new DataStreamHR(header.startTime, header.duration, SortedMap(hrMap:_*))
+    val distStream = new DataStreamDist(header.startTime, header.duration, SortedMap(distMap:_*))
+    new Move(header, hrStream, distStream)
   }
 
-  def parseHeader(header: Node, suuntoMove: SuuntoMove) = {
+  def parseHeader(headerStr: Node) = {
+    val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault)
+
     val durationPattern = Pattern.compile("(\\d+):(\\d+):(\\d+)\\.?(\\d*)")
 
-    suuntoMove.calories = (header \ "Calories")(0).text.toInt
-    suuntoMove.distance = (header \ "Distance")(0).text.toInt
-    suuntoMove.startTime = (header \ "Time")(0).text
-    val durationStr = (header \ "Duration")(0).text
+    val calories = (headerStr \ "Calories")(0).text.toInt
+    val distance = (headerStr \ "Distance")(0).text.toInt
+
+    val timeText = (headerStr \ "Time") (0).text
+    val startTime = timeToUTC(ZonedDateTime.parse(timeText, dateFormat))
+    val durationStr = (headerStr \ "Duration")(0).text
     val matcher = durationPattern.matcher(durationStr)
-    if (matcher.matches) {
+    val duration = if (matcher.matches) {
       val hour = matcher.group(1).toInt
       val minute = matcher.group(2).toInt
       val second = matcher.group(3).toInt
       val ms = if (!matcher.group(4).isEmpty) matcher.group(4).toInt else 0
-      suuntoMove.duration = (hour * 3600 + minute * 60 + second) * 1000 + ms
-    }
+      (hour * 3600 + minute * 60 + second) * 1000 + ms
+    } else 0
+    Header(startTime, duration, calories, distance)
   }
 
-  def parse(xmlFile: File): Seq[SuuntoMove] = {
+  def parse(xmlFile: File): Seq[Move] = {
     XMLParser.log.debug("Parsing " + xmlFile.getName)
     val document = XML.loadFile(xmlFile)
     val moves = document \ "Moves"
@@ -56,10 +81,10 @@ object XMLParser {
     XMLParser.log.debug(moveList.size + " move elements in this file")
     val suuntoMoves = moveList.zipWithIndex.flatMap { case (moveItem, i) =>
       try {
-        val header = (moveItem \ "Header")(0)
+        val headerStr = (moveItem \ "Header")(0)
         val samples = (moveItem \ "Samples")(0)
-        val suuntoMove = parseSamples(samples)
-        parseHeader(header, suuntoMove)
+        val header = parseHeader(headerStr)
+        val suuntoMove = parseSamples(header, samples)
         Some(suuntoMove)
       }
       catch {
