@@ -26,8 +26,8 @@ object MovesLink2Uploader {
     true
   }
 
-  def readXMLFiles(): MoveIndex = {
-    val index = new MoveIndex
+  def readXMLFiles(): Set[Move] = {
+    var index = Set[Move]()
     val folder = getDataFolder
     val files = folder.listFiles
     for (file <- files) {
@@ -36,7 +36,7 @@ object MovesLink2Uploader {
         MovesLink2Uploader.log.info("Analyzing " + fileName)
         val parser = XMLParser.parse(file)
         parser.foreach { move =>
-          index.add(move)
+          index += move
           println(s"GPS: ${move.toLog}")
         }
       }

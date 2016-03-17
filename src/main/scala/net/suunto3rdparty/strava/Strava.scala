@@ -126,13 +126,13 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
           case M(map) =>
             map.get("id") match {
               case D(id) =>
+                println(s"  upload id ${id.toInt}")
                 Some(id.toInt)
               case _ =>
                 None
             }
           case _ => None
         }
-
         uploadId
 
       }

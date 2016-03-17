@@ -140,9 +140,10 @@ object XMLParser {
           } yield {
             val hrTry = Try((sample \ "HR")(0).text)
             val elevationTry = Try((sample \ "Altitude")(0).text)
-            val timeTry = Try(ZonedDateTime.parse((sample \ "UTC")(0).text, dateFormat))
+            val timeTry = Try(ZonedDateTime.parse((sample \ "UTC")(0).text))
+            val timeSim = header.startTime.plusNanos((time * 1000000000L).toLong)
             // prefer UTC when present
-            val timeUtc = timeTry.getOrElse(header.startTime.plusNanos((time * 1000000L).toLong))
+            val timeUtc = timeTry.getOrElse(timeSim)
             // replace missing values with zeroes - this is what Quest is recording on failure anyway
             val hr = hrTry.map(_.toInt).getOrElse(0)
             val elevation = elevationTry.map(_.toInt).toOption
@@ -164,14 +165,14 @@ object XMLParser {
 
     val hrDistStream = if (hrSeq.size == distanceSeq.size && hrSeq.exists(_ != 0)) {
       val hrWithDist = (hrSeq zip distanceSeq).map { case (hr,d) => HRPoint(hr, d) }
-      new DataStreamHRWithDist(header.startTime, header.durationMs, SortedMap(timeSeq zip hrWithDist:_*))
+      new DataStreamHRWithDist(SortedMap(timeSeq zip hrWithDist:_*))
     } else {
-      new DataStreamDist(header.startTime, header.durationMs, SortedMap(timeSeq zip distanceSeq:_*))
+      new DataStreamDist(SortedMap(timeSeq zip distanceSeq:_*))
     }
 
-    val gpsStream = new DataStreamGPS(header.startTime, header.durationMs, SortedMap(trackPoints:_*))
+    val gpsStream = new DataStreamGPS(SortedMap(trackPoints:_*))
 
-    new Move(header, gpsStream, hrDistStream)
+    new Move(MoveHeader(), gpsStream, hrDistStream)
   }
 
   def parse(xmlFile: File): Try[Move] = {

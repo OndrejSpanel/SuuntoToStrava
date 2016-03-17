@@ -43,8 +43,8 @@ object XMLParser {
       timeMs(t) -> s
     }
 
-    val hrStream = new DataStreamHRWithDist(header.startTime, header.durationMs, SortedMap(timedMap:_*))
-    new Move(header, hrStream, hrStream)
+    val hrStream = new DataStreamHRWithDist(SortedMap(timedMap:_*))
+    new Move(MoveHeader(), hrStream)
   }
 
   def parseHeader(headerStr: Node) = {
