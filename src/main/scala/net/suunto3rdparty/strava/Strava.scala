@@ -101,7 +101,6 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
       authString.flatMap { authString =>
 
         val body = MultipartEntityBuilder.create()
-          .addTextBody("activity_type", "run")
           .addTextBody("data_type", "fit")
           .addTextBody("private", "1")
           .addBinaryBody("file", moveBytes, ContentType.APPLICATION_OCTET_STREAM, "file.fit")
