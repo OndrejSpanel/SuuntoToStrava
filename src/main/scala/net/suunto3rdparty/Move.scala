@@ -7,6 +7,8 @@ import Util._
 import scala.collection.immutable.SortedMap
 
 case class Header(startTime: ZonedDateTime = ZonedDateTime.now, durationMs: Int = 0, calories: Int = 0, distance: Int = 0)
+case class MoveHeader(moveType: String = "Run")
+
 case class GPSPoint(latitude: Double, longitude: Double, elevation: Option[Int])
 case class HRPoint(hr: Int, dist: Double)
 
@@ -24,7 +26,7 @@ object StreamHRWithDist extends StreamType {
   override def toString: String = "HR_Dist"
 }
 
-sealed abstract class DataStream(val streamType: StreamType, val startTimeFromFile: ZonedDateTime, val durationMs: Int) {
+sealed abstract class DataStream(val streamType: StreamType) {
 
   type Item
 
@@ -34,8 +36,11 @@ sealed abstract class DataStream(val streamType: StreamType, val startTimeFromFi
 
   def pickData(data: DataMap): DataStream
 
-  val startTime: ZonedDateTime = stream.headOption.map(_._1).getOrElse(startTimeFromFile)
-  def endTime: ZonedDateTime = stream.lastOption.map(_._1).getOrElse(startTimeFromFile)
+  val startTimeOpt = stream.headOption.map(_._1)
+  val endTimeOpt = stream.lastOption.map(_._1)
+
+  def startTime: ZonedDateTime = startTimeOpt.get
+  def endTime: ZonedDateTime = endTimeOpt.get
 
   def isOverlapping(that: DataStream): Boolean = !(startTime > that.endTime || endTime < that.startTime)
 
@@ -48,38 +53,50 @@ sealed abstract class DataStream(val streamType: StreamType, val startTimeFromFi
 
 }
 
-class DataStreamGPS(startTime: ZonedDateTime, durationMs: Int, override val stream: SortedMap[ZonedDateTime, GPSPoint]) extends DataStream(StreamGPS, startTime, durationMs) {
+class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) extends DataStream(StreamGPS) {
   type Item = GPSPoint
 
-  override def pickData(data: DataMap) = new DataStreamGPS(startTime, durationMs, data)
+  override def pickData(data: DataMap) = new DataStreamGPS(data)
 }
 
-class DataStreamHRWithDist(startTime: ZonedDateTime, durationMs: Int, override val stream: SortedMap[ZonedDateTime, HRPoint]) extends DataStream(StreamHRWithDist, startTime, durationMs) {
+class DataStreamHRWithDist(override val stream: SortedMap[ZonedDateTime, HRPoint]) extends DataStream(StreamHRWithDist) {
   type Item = HRPoint
 
-  override def pickData(data: DataMap) = new DataStreamHRWithDist(startTime, durationMs, data)
+  override def pickData(data: DataMap) = new DataStreamHRWithDist(data)
 }
 
-class DataStreamHR(startTime: ZonedDateTime, durationMs: Int, override val stream: SortedMap[ZonedDateTime, Int]) extends DataStream(StreamHR, startTime, durationMs) {
+class DataStreamHR(override val stream: SortedMap[ZonedDateTime, Int]) extends DataStream(StreamHR) {
   type Item = Int
 
-  override def pickData(data: DataMap) = new DataStreamHR(startTime, durationMs, data)
+  override def pickData(data: DataMap) = new DataStreamHR(data)
 }
 
-class DataStreamDist(startTime: ZonedDateTime, durationMs: Int, override val stream: SortedMap[ZonedDateTime, Double]) extends DataStream(StreamDist, startTime, durationMs) {
+class DataStreamDist(override val stream: SortedMap[ZonedDateTime, Double]) extends DataStream(StreamDist) {
   type Item = Double
 
-  override def pickData(data: DataMap) = new DataStreamDist(startTime, durationMs, data)
+  override def pickData(data: DataMap) = new DataStreamDist(data)
 }
 
-case class Move(header: Header, streams: Map[StreamType, DataStream]) {
 
-  def this(header: Header, streamSeq: DataStream*) = {
+object Move {
+  implicit def ordering: Ordering[Move] = {
+    new Ordering[Move] {
+      override def compare(x: Move, y: Move) = x.startTime compareTo y.startTime
+    }
+  }
+}
+
+case class Move(header: MoveHeader, streams: Map[StreamType, DataStream]) {
+
+  def this(header: MoveHeader, streamSeq: DataStream*) = {
     this(header, streamSeq.map(s => s.streamType -> s).toMap)
   }
 
-  def startTime: ZonedDateTime = streams.values.map(_.startTime).min
-  def endTime: ZonedDateTime = streams.values.map(_.endTime).max
+  private def startTimeOfStreams(ss: Iterable[DataStream]) = ss.flatMap(_.startTimeOpt).min
+  private def endTimeOfStreams(ss: Iterable[DataStream]) = ss.flatMap(_.endTimeOpt).max
+
+  val startTime: ZonedDateTime = startTimeOfStreams(streams.values)
+  val endTime: ZonedDateTime = endTimeOfStreams(streams.values)
 
   def toLog: String = streams.mapValues(_.toLog).mkString(", ")
 

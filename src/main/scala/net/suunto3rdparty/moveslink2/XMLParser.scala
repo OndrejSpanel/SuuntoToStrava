@@ -165,14 +165,14 @@ object XMLParser {
 
     val hrDistStream = if (hrSeq.size == distanceSeq.size && hrSeq.exists(_ != 0)) {
       val hrWithDist = (hrSeq zip distanceSeq).map { case (hr,d) => HRPoint(hr, d) }
-      new DataStreamHRWithDist(header.startTime, header.durationMs, SortedMap(timeSeq zip hrWithDist:_*))
+      new DataStreamHRWithDist(SortedMap(timeSeq zip hrWithDist:_*))
     } else {
-      new DataStreamDist(header.startTime, header.durationMs, SortedMap(timeSeq zip distanceSeq:_*))
+      new DataStreamDist(SortedMap(timeSeq zip distanceSeq:_*))
     }
 
-    val gpsStream = new DataStreamGPS(header.startTime, header.durationMs, SortedMap(trackPoints:_*))
+    val gpsStream = new DataStreamGPS(SortedMap(trackPoints:_*))
 
-    new Move(header, gpsStream, hrDistStream)
+    new Move(MoveHeader(), gpsStream, hrDistStream)
   }
 
   def parse(xmlFile: File): Try[Move] = {
