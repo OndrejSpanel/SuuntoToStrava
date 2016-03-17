@@ -4,12 +4,9 @@ package strava
 import java.io._
 
 import fit.Export
-import org.apache.http.client.methods.HttpPost
 import org.apache.http.client.fluent.{Form, Request}
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.mime.MultipartEntityBuilder
-import org.apache.http.impl.client.HttpClientBuilder
-import org.apache.http.util.EntityUtils
 
 import scala.util.parsing.json.JSON
 
@@ -99,49 +96,49 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
   }
 
   def uploadRawFile(moveBytes: Array[Byte]): Option[Int] = {
-    val response = authString.flatMap { authString =>
+    try {
+      authString.flatMap { authString =>
 
-      val body = MultipartEntityBuilder.create()
-        .addTextBody("activity_type", "run")
-        .addTextBody("data_type", "fit")
-        .addTextBody("private", "1")
-        .addBinaryBody("file", moveBytes, ContentType.APPLICATION_OCTET_STREAM, "file.fit")
-        .build()
+        val body = MultipartEntityBuilder.create()
+          .addTextBody("activity_type", "run")
+          .addTextBody("data_type", "fit")
+          .addTextBody("private", "1")
+          .addBinaryBody("file", moveBytes, ContentType.APPLICATION_OCTET_STREAM, "file.fit")
+          .build()
 
-      val httpPost = new HttpPost(buildURI("uploads"))
-      httpPost.setEntity(body)
-      httpPost.addHeader("Authorization", authString)
-      httpPost.addHeader("Expect","100-continue")
-      httpPost.addHeader("Accept", "*/*")
+        val request = Request.Post(buildURI("uploads"))
+          .useExpectContinue()
+          .addHeader("Authorization", authString)
+          .addHeader("Accept", "*/*")
+          .body(body)
 
-      val client = HttpClientBuilder.create().build()
-      val response = client.execute(httpPost)
-      val result = response.getEntity
-      val resultCode = response.getStatusLine.getStatusCode
+        val response = request.execute()
+        val content = response.returnContent()
 
-      val resultString = EntityUtils.toString(result)
+        val resultString = content.asString()
 
-      EntityUtils.consume(result)
-      client.close()
+        // TODO: check if result is OK
+        // we expect to receive 201
+        val resultJson = JSON.parseFull(resultString)
+        val uploadId = Option(resultJson).flatMap {
+          case M(map) =>
+            map.get("id") match {
+              case S(id) =>
+                Some(id.toInt)
+              case _ =>
+                None
+            }
+          case _ => None
+        }
 
-      // TODO: check if result is OK
-      // we expect to receive 201
-      val resultJson = JSON.parseFull(resultString)
-      val uploadId = Option(resultJson).flatMap {
-        case M(map) =>
-          map.get("id") match {
-            case S(id) =>
-              Some(id.toInt)
-            case _ =>
-              None
-          }
-        case _ => None
+        uploadId
+
       }
-
-      uploadId
-
+    } catch {
+      case ex: Exception =>
+        ex.printStackTrace()
+        None
     }
-    response
   }
 
 }
@@ -177,7 +174,7 @@ object StravaAccess extends App {
   }
 
   // try uploading a fit file
-  val toUpload = getClass.getResourceAsStream("/decodeTest.fit")
+  val toUpload = getClass.getResourceAsStream("/uploadTest.fit")
 
   if (toUpload != null) {
     val buffer = Array.ofDim[Byte](4096)
