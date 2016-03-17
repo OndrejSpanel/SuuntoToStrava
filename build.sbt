@@ -18,4 +18,10 @@ libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.3"
 
 libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
 
-libraryDependencies += "org.scalaj" %% "scalaj-http" % "2.2.1"
+libraryDependencies += "org.apache.httpcomponents" % "httpclient" % "4.5.2"
+
+libraryDependencies += "org.apache.httpcomponents" % "fluent-hc" % "4.3.6"
+
+libraryDependencies += "org.apache.httpcomponents" % "httpmime" % "4.3.6"
+
+libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.5" % "test"

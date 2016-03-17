@@ -1,0 +1,557 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE xml>
+<MovesCount MoveslinkVersion="1.2.40.0" TimeZone="60" >
+ <Device sn="Quest_2596420792" >
+  <Model info="DEVICE;INT;R" >120</Model>
+  <Name info="DEVICE;TEXT;R" >Quest</Name>
+  <FullName info="DEVICE;TEXT;R" >Suunto Quest</FullName>
+  <SerialNumber info="DEVICE;INT;R" >2596420792</SerialNumber>
+  <Settings>
+   <ActivityClass info="DEVICE;SELECTION;RW;[1][2][3][4][5][6][7][7.5][8][8.5][9][9.5][10]" >7</ActivityClass>
+   <AutolapEnabled info="DEVICE;INT;RW" >0</AutolapEnabled>
+   <BirthYear info="DEVICE;INT;RW;[1910...2099]" >1971</BirthYear>
+   <ClockMode info="DEVICE;SELECTION;RW;[12h][24h]" >24h</ClockMode>
+   <DateMode info="DEVICE;SELECTION;RW;[MMDD][DDMM]" >DDMM</DateMode>
+   <DistanceUnit info="DEVICE;SELECTION;RW;[mile][km]" >km</DistanceUnit>
+   <Gender info="DEVICE;SELECTION;RW;[female][male]" >male</Gender>
+   <HRMax info="DEVICE;INT;RW;[100...240]" >185</HRMax>
+   <HRMin info="DEVICE;INT;RW;[30...100]" >60</HRMin>
+   <HRZone1 info="DEVICE;INT;R;[0...99]" >75</HRZone1>
+   <HRZone2 info="DEVICE;INT;R;[0...99]" >87</HRZone2>
+   <HRZone3 info="DEVICE;INT;R;[0...99]" >91</HRZone3>
+   <HRZone4 info="DEVICE;INT;R;[0...99]" >94</HRZone4>
+   <IntervalTimer1 info="DEVICE;INT;RW" >00'05</IntervalTimer1>
+   <IntervalTimer1Enabled info="DEVICE;INT;RW" >0</IntervalTimer1Enabled>
+   <IntervalTimer2 info="DEVICE;INT;RW" >00'05</IntervalTimer2>
+   <IntervalTimer2Enabled info="DEVICE;INT;RW" >0</IntervalTimer2Enabled>
+   <LanguageId info="DEVICE;SELECTION;RW;[English][French][Finnish][Dutch][Spanish][Swedish][Italian][Portuguese][German]" >English</LanguageId>
+   <LimitsMode info="DEVICE;SELECTION;RW;[Off][Heart rate limit][Speed limit]" >Off</LimitsMode>
+   <OuterRim info="DEVICE;SELECTION;RW;[Off][Recovery][Heart rate %][Completion]" >Heart rate %</OuterRim>
+   <SaveMoveConfirmation info="DEVICE;INT;RW" >0</SaveMoveConfirmation>
+   <Sounds info="DEVICE;SELECTION;RW;[all on][all off][buttons off]" >all off</Sounds>
+   <TrainingProgram info="DEVICE;SELECTION;RW;[Off][Movescount]" >Off</TrainingProgram>
+   <Weight info="DEVICE;REAL;RW;[30...200]" >71.00</Weight>
+   <WeightUnit info="DEVICE;SELECTION;R;[lb][kg]" >kg</WeightUnit>
+  </Settings>
+  <Version info="DEVICE;TEXT;R" >1.0.7</Version>
+  <TIVersion info="DEVICE;TEXT;R" >0.0.0</TIVersion>
+ </Device>
+ <ExerciseModes>
+  <ExerciseMode Index="0" >
+   <Activity info="EXERCISEMODE;INT;RW" >5</Activity>
+   <Enabled info="EXERCISEMODE;INT;RW;[0...1]" >1</Enabled>
+   <HrHighLimit info="EXERCISEMODE;INT;RW;[0...240]" >170</HrHighLimit>
+   <HrLowLimit info="EXERCISEMODE;INT;RW;[0...240]" >120</HrLowLimit>
+   <Name info="EXERCISEMODE;TEXT;RW]" >Bike</Name>
+   <POD1DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD1DistLimit>
+   <POD2DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD2DistLimit>
+   <POD3DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD3DistLimit>
+   <SearchedDevices info="EXERCISEMODE;SELECTION;RW;[HR belt][PODs][HR and PODs][Do not search]" >HR and PODs</SearchedDevices>
+   <SpeedHighLimit info="EXERCISEMODE;REAL;RW;[0...100]" >12</SpeedHighLimit>
+   <SpeedLowLimit info="EXERCISEMODE;REAL;RW;[0...100]" >8</SpeedLowLimit>
+   <TapFunctionality info="EXERCISEMODE;SELECTION;RW;[Off][Lap][Light][Lap and light]" >Lap</TapFunctionality>
+   <UseAutolap info="EXERCISEMODE;INT;RW" >0</UseAutolap>
+   <Display Index="0" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >1</Enabled>
+   </Display>
+   <Display Index="1" >
+    <Row1 info="EXERCISEMODE;INT;RW" >4</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >13</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >1</Enabled>
+   </Display>
+   <Display Index="2" >
+    <Row1 info="EXERCISEMODE;INT;RW" >1</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >2</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >1</Enabled>
+   </Display>
+   <Display Index="3" >
+    <Row1 info="EXERCISEMODE;INT;RW" >1</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >12</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >1</Enabled>
+   </Display>
+   <Display Index="4" >
+    <Row1 info="EXERCISEMODE;INT;RW" >8</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >9</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >1</Enabled>
+   </Display>
+   <Display Index="5" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="6" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="7" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="8" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="9" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+  </ExerciseMode>
+  <ExerciseMode Index="1" >
+   <Activity info="EXERCISEMODE;INT;RW" >75</Activity>
+   <Enabled info="EXERCISEMODE;INT;RW;[0...1]" >1</Enabled>
+   <HrHighLimit info="EXERCISEMODE;INT;RW;[0...240]" >170</HrHighLimit>
+   <HrLowLimit info="EXERCISEMODE;INT;RW;[0...240]" >120</HrLowLimit>
+   <Name info="EXERCISEMODE;TEXT;RW]" >Race</Name>
+   <POD1DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD1DistLimit>
+   <POD2DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD2DistLimit>
+   <POD3DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD3DistLimit>
+   <SearchedDevices info="EXERCISEMODE;SELECTION;RW;[HR belt][PODs][HR and PODs][Do not search]" >HR and PODs</SearchedDevices>
+   <SpeedHighLimit info="EXERCISEMODE;REAL;RW;[0...100]" >12</SpeedHighLimit>
+   <SpeedLowLimit info="EXERCISEMODE;REAL;RW;[0...100]" >8</SpeedLowLimit>
+   <TapFunctionality info="EXERCISEMODE;SELECTION;RW;[Off][Lap][Light][Lap and light]" >Lap</TapFunctionality>
+   <UseAutolap info="EXERCISEMODE;INT;RW" >0</UseAutolap>
+   <Display Index="0" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >13</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >1</Enabled>
+   </Display>
+   <Display Index="1" >
+    <Row1 info="EXERCISEMODE;INT;RW" >4</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >2</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >1</Enabled>
+   </Display>
+   <Display Index="2" >
+    <Row1 info="EXERCISEMODE;INT;RW" >5</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >3</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >1</Enabled>
+   </Display>
+   <Display Index="3" >
+    <Row1 info="EXERCISEMODE;INT;RW" >0</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >0</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="4" >
+    <Row1 info="EXERCISEMODE;INT;RW" >0</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >0</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="5" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="6" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="7" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="8" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="9" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+  </ExerciseMode>
+  <ExerciseMode Index="2" >
+   <Activity info="EXERCISEMODE;INT;RW" >82</Activity>
+   <Enabled info="EXERCISEMODE;INT;RW;[0...1]" >1</Enabled>
+   <HrHighLimit info="EXERCISEMODE;INT;RW;[0...240]" >165</HrHighLimit>
+   <HrLowLimit info="EXERCISEMODE;INT;RW;[0...240]" >145</HrLowLimit>
+   <Name info="EXERCISEMODE;TEXT;RW]" >Trail</Name>
+   <POD1DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD1DistLimit>
+   <POD2DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD2DistLimit>
+   <POD3DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD3DistLimit>
+   <SearchedDevices info="EXERCISEMODE;SELECTION;RW;[HR belt][PODs][HR and PODs][Do not search]" >HR and PODs</SearchedDevices>
+   <SpeedHighLimit info="EXERCISEMODE;REAL;RW;[0...100]" >12</SpeedHighLimit>
+   <SpeedLowLimit info="EXERCISEMODE;REAL;RW;[0...100]" >9</SpeedLowLimit>
+   <TapFunctionality info="EXERCISEMODE;SELECTION;RW;[Off][Lap][Light][Lap and light]" >Lap</TapFunctionality>
+   <UseAutolap info="EXERCISEMODE;INT;RW" >0</UseAutolap>
+   <Display Index="0" >
+    <Row1 info="EXERCISEMODE;INT;RW" >9</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >12</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >1</Enabled>
+   </Display>
+   <Display Index="1" >
+    <Row1 info="EXERCISEMODE;INT;RW" >11</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >13</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >1</Enabled>
+   </Display>
+   <Display Index="2" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >1</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >1</Enabled>
+   </Display>
+   <Display Index="3" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >1</Enabled>
+   </Display>
+   <Display Index="4" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >4</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >1</Enabled>
+   </Display>
+   <Display Index="5" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="6" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="7" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="8" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="9" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+  </ExerciseMode>
+  <ExerciseMode Index="3" >
+   <Activity info="EXERCISEMODE;INT;RW" >1</Activity>
+   <Enabled info="EXERCISEMODE;INT;RW;[0...1]" >0</Enabled>
+   <HrHighLimit info="EXERCISEMODE;INT;RW;[0...240]" >170</HrHighLimit>
+   <HrLowLimit info="EXERCISEMODE;INT;RW;[0...240]" >120</HrLowLimit>
+   <Name info="EXERCISEMODE;TEXT;RW]" >UNUSEDDUMMYMODE2</Name>
+   <POD1DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD1DistLimit>
+   <POD2DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD2DistLimit>
+   <POD3DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD3DistLimit>
+   <SearchedDevices info="EXERCISEMODE;SELECTION;RW;[HR belt][PODs][HR and PODs][Do not search]" >Do not search</SearchedDevices>
+   <SpeedHighLimit info="EXERCISEMODE;REAL;RW;[0...100]" >12</SpeedHighLimit>
+   <SpeedLowLimit info="EXERCISEMODE;REAL;RW;[0...100]" >9</SpeedLowLimit>
+   <TapFunctionality info="EXERCISEMODE;SELECTION;RW;[Off][Lap][Light][Lap and light]" >Lap and light</TapFunctionality>
+   <UseAutolap info="EXERCISEMODE;INT;RW" >0</UseAutolap>
+   <Display Index="0" >
+    <Row1 info="EXERCISEMODE;INT;RW" >0</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >0</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="1" >
+    <Row1 info="EXERCISEMODE;INT;RW" >0</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >0</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="2" >
+    <Row1 info="EXERCISEMODE;INT;RW" >0</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >0</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="3" >
+    <Row1 info="EXERCISEMODE;INT;RW" >0</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >0</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="4" >
+    <Row1 info="EXERCISEMODE;INT;RW" >0</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >0</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="5" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="6" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="7" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="8" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="9" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+  </ExerciseMode>
+  <ExerciseMode Index="4" >
+   <Activity info="EXERCISEMODE;INT;RW" >1</Activity>
+   <Enabled info="EXERCISEMODE;INT;RW;[0...1]" >0</Enabled>
+   <HrHighLimit info="EXERCISEMODE;INT;RW;[0...240]" >170</HrHighLimit>
+   <HrLowLimit info="EXERCISEMODE;INT;RW;[0...240]" >120</HrLowLimit>
+   <Name info="EXERCISEMODE;TEXT;RW]" >UNUSEDDUMMYMODE1</Name>
+   <POD1DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD1DistLimit>
+   <POD2DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD2DistLimit>
+   <POD3DistLimit info="EXERCISEMODE;INT;RW;[0...65000]" >1000</POD3DistLimit>
+   <SearchedDevices info="EXERCISEMODE;SELECTION;RW;[HR belt][PODs][HR and PODs][Do not search]" >Do not search</SearchedDevices>
+   <SpeedHighLimit info="EXERCISEMODE;REAL;RW;[0...100]" >12</SpeedHighLimit>
+   <SpeedLowLimit info="EXERCISEMODE;REAL;RW;[0...100]" >9</SpeedLowLimit>
+   <TapFunctionality info="EXERCISEMODE;SELECTION;RW;[Off][Lap][Light][Lap and light]" >Lap and light</TapFunctionality>
+   <UseAutolap info="EXERCISEMODE;INT;RW" >0</UseAutolap>
+   <Display Index="0" >
+    <Row1 info="EXERCISEMODE;INT;RW" >0</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >0</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="1" >
+    <Row1 info="EXERCISEMODE;INT;RW" >0</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >0</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="2" >
+    <Row1 info="EXERCISEMODE;INT;RW" >0</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >0</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="3" >
+    <Row1 info="EXERCISEMODE;INT;RW" >0</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >0</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="4" >
+    <Row1 info="EXERCISEMODE;INT;RW" >0</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >0</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="5" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="6" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="7" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="8" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+   <Display Index="9" >
+    <Row1 info="EXERCISEMODE;INT;RW" >2</Row1>
+    <Row2 info="EXERCISEMODE;INT;RW" >7</Row2>
+    <Enabled info="EXERCISEMODE;INT;RW" >0</Enabled>
+   </Display>
+  </ExerciseMode>
+ </ExerciseModes>
+ <Moves>
+  <Move Index="31" >
+   <Samples>
+    <Cadence info="LOG;INTVECTOR;R" ><![CDATA[ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]]></Cadence>
+    <Distance info="LOG;INTVECTOR;R" ><![CDATA[ 10 21 17 23 13 17 24 11 24 17 16 22 20 23 18 15 25 19 20 22 14 24 15 21 23 16 19 20 19 21 15 14 24 17 18 22 21 19 14 26 19 12 21 20 13 25 15 19 23 17 14 26 16 17 14 24 15 27 14 16 23 19 18 16 18 24 14 14 0 7 0 0 0]]></Distance>
+    <HR info="LOG;INTVECTOR;R" ><![CDATA[ 90 88 89 91 89 88 88 90 92 96 94 97 100 101 103 106 109 110 109 111 110 110 110 110 107 105 104 102 100 101 98 102 103 104 105 107 109 114 104 107 107 108 107 108 109 110 109 109 110 107 102 102 102 103 101 103 104 103 104 101 103 105 105 105 109 109 109 106 104 104 100 106 96]]></HR>
+   </Samples>
+   <Marks LapCount="1" >
+    <Mark Index="0" >
+     <HRAvg>103</HRAvg>
+     <Cadence>0</Cadence>
+     <Distance>1270</Distance>
+     <HR>94</HR>
+     <Time>00:12:19.900</Time>
+     <Type>4</Type>
+    </Mark>
+   </Marks>
+   <Header>
+    <Activity info="LOG;INT;R" >82</Activity>
+    <Calories info="LOG;INT;R" >67</Calories>
+    <Distance info="LOG;INT;R" >1270</Distance>
+    <Duration info="LOG;TIMESPAN;R" >00:12:19.900</Duration>
+    <HRAvg info="LOG;INT;R" >103</HRAvg>
+    <HRMax info="LOG;INT;R" >114</HRMax>
+    <RecoveryTime info="LOG;INT;R" >5100</RecoveryTime>
+    <SampleRate info="LOG;INT;R" >10</SampleRate>
+    <Time info="LOG;DATETIME;R" >2016-03-17 09:03:33</Time>
+    <TimeAboveZone4 info="LOG;TIMESPAN;R" >00:00:00</TimeAboveZone4>
+    <TimeBelowZone1 info="LOG;TIMESPAN;R" >00:12:19</TimeBelowZone1>
+    <TimeInZone1 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone1>
+    <TimeInZone2 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone2>
+    <TimeInZone3 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone3>
+   </Header>
+  </Move>
+  <Move Index="30" >
+   <Samples>
+    <Cadence info="LOG;INTVECTOR;R" ><![CDATA[ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]]></Cadence>
+    <Distance info="LOG;INTVECTOR;R" ><![CDATA[ 0 0 10 6 72 95 108 114 121 127 107 95 116 90 71 77 27 61 33 53 95 96 73 6 0 6 8 0 0 6 0 6 10 5 0 0 0 11]]></Distance>
+    <HR info="LOG;INTVECTOR;R" ><![CDATA[ 92 93 72 67 69 65 63 63 59 61 63 69 67 63 65 63 65 67 62 64 65 64 63 65 69 74 68 64 73 86 84 82 87 99 100 91 83 81]]></HR>
+   </Samples>
+   <Marks LapCount="1" >
+    <Mark Index="0" >
+     <HRAvg>72</HRAvg>
+     <Cadence>0</Cadence>
+     <Distance>1700</Distance>
+     <HR>86</HR>
+     <Time>00:06:23.600</Time>
+     <Type>4</Type>
+    </Mark>
+   </Marks>
+   <Header>
+    <Activity info="LOG;INT;R" >5</Activity>
+    <Calories info="LOG;INT;R" >13</Calories>
+    <Distance info="LOG;INT;R" >1700</Distance>
+    <Duration info="LOG;TIMESPAN;R" >00:06:23.600</Duration>
+    <HRAvg info="LOG;INT;R" >72</HRAvg>
+    <HRMax info="LOG;INT;R" >100</HRMax>
+    <RecoveryTime info="LOG;INT;R" >0</RecoveryTime>
+    <SampleRate info="LOG;INT;R" >10</SampleRate>
+    <Time info="LOG;DATETIME;R" >2016-03-17 08:14:16</Time>
+    <TimeAboveZone4 info="LOG;TIMESPAN;R" >00:00:00</TimeAboveZone4>
+    <TimeBelowZone1 info="LOG;TIMESPAN;R" >00:06:23</TimeBelowZone1>
+    <TimeInZone1 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone1>
+    <TimeInZone2 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone2>
+    <TimeInZone3 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone3>
+   </Header>
+  </Move>
+  <Move Index="29" >
+   <Samples>
+    <Cadence info="LOG;INTVECTOR;R" ><![CDATA[ 0 0 0 0 0 0 0 0 0 0]]></Cadence>
+    <Distance info="LOG;INTVECTOR;R" ><![CDATA[ 10 20 20 17 12 22 20 12 20 17]]></Distance>
+    <HR info="LOG;INTVECTOR;R" ><![CDATA[ 91 94 95 98 99 99 98 95 100 97]]></HR>
+   </Samples>
+   <Marks LapCount="1" >
+    <Mark Index="0" >
+     <HRAvg>95</HRAvg>
+     <Cadence>0</Cadence>
+     <Distance>170</Distance>
+     <HR>98</HR>
+     <Time>00:01:42.300</Time>
+     <Type>4</Type>
+    </Mark>
+   </Marks>
+   <Header>
+    <Activity info="LOG;INT;R" >82</Activity>
+    <Calories info="LOG;INT;R" >8</Calories>
+    <Distance info="LOG;INT;R" >170</Distance>
+    <Duration info="LOG;TIMESPAN;R" >00:01:42.300</Duration>
+    <HRAvg info="LOG;INT;R" >95</HRAvg>
+    <HRMax info="LOG;INT;R" >100</HRMax>
+    <RecoveryTime info="LOG;INT;R" >0</RecoveryTime>
+    <SampleRate info="LOG;INT;R" >10</SampleRate>
+    <Time info="LOG;DATETIME;R" >2016-03-17 08:12:15</Time>
+    <TimeAboveZone4 info="LOG;TIMESPAN;R" >00:00:00</TimeAboveZone4>
+    <TimeBelowZone1 info="LOG;TIMESPAN;R" >00:01:42</TimeBelowZone1>
+    <TimeInZone1 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone1>
+    <TimeInZone2 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone2>
+    <TimeInZone3 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone3>
+   </Header>
+  </Move>
+  <Move Index="28" >
+   <Samples>
+    <Cadence info="LOG;INTVECTOR;R" ><![CDATA[ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]]></Cadence>
+    <Distance info="LOG;INTVECTOR;R" ><![CDATA[ 10 20 14 14 15 18 19 20 17 19 15 19 25 6 19 14 13 13 7 0 0 0 0 0 0 0 0 0 0 0 0 0 14 19 19 11 6 0 0 0 0 11 0 0 0 0 22 20 16 22 29 19 20 13 19 6 17 14 8 0 3 0 0 0 0 0 0 7 0 0 16 20 14 18 19 18 15 19 25]]></Distance>
+    <HR info="LOG;INTVECTOR;R" ><![CDATA[ 94 90 91 91 92 92 92 92 89 99 97 97 95 97 95 87 87 86 86 86 89 88 83 84 87 84 78 77 77 80 81 75 82 87 89 92 93 86 89 92 95 92 86 83 83 83 89 94 103 103 109 116 115 110 107 105 104 101 96 85 76 70 67 66 61 65 66 66 65 72 92 92 96 101 103 106 105 103 101]]></HR>
+   </Samples>
+   <Marks LapCount="3" >
+    <Mark Index="0" >
+     <HRAvg>93</HRAvg>
+     <Cadence>0</Cadence>
+     <Distance>240</Distance>
+     <HR>95</HR>
+     <Time>00:02:23.900</Time>
+     <Type>4</Type>
+    </Mark>
+    <Mark Index="1" >
+     <HRAvg>87</HRAvg>
+     <Cadence>0</Cadence>
+     <Distance>50</Distance>
+     <HR>86</HR>
+     <Time>00:01:04.800</Time>
+     <Type>4</Type>
+    </Mark>
+    <Mark Index="2" >
+     <HRAvg>88</HRAvg>
+     <Cadence>0</Cadence>
+     <Distance>480</Distance>
+     <HR>98</HR>
+     <Time>00:09:45.400</Time>
+     <Type>4</Type>
+    </Mark>
+   </Marks>
+   <Header>
+    <Activity info="LOG;INT;R" >82</Activity>
+    <Calories info="LOG;INT;R" >50</Calories>
+    <Distance info="LOG;INT;R" >780</Distance>
+    <Duration info="LOG;TIMESPAN;R" >00:13:14.100</Duration>
+    <HRAvg info="LOG;INT;R" >89</HRAvg>
+    <HRMax info="LOG;INT;R" >116</HRMax>
+    <RecoveryTime info="LOG;INT;R" >3000</RecoveryTime>
+    <SampleRate info="LOG;INT;R" >10</SampleRate>
+    <Time info="LOG;DATETIME;R" >2016-03-17 07:55:30</Time>
+    <TimeAboveZone4 info="LOG;TIMESPAN;R" >00:00:00</TimeAboveZone4>
+    <TimeBelowZone1 info="LOG;TIMESPAN;R" >00:13:14</TimeBelowZone1>
+    <TimeInZone1 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone1>
+    <TimeInZone2 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone2>
+    <TimeInZone3 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone3>
+   </Header>
+  </Move>
+  <Move Index="27" >
+   <Samples>
+    <Cadence info="LOG;INTVECTOR;R" ><![CDATA[ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]]></Cadence>
+    <Distance info="LOG;INTVECTOR;R" ><![CDATA[ 0 0 33 60 97 106 61 81 77 74 114 95 69 74 130 126 106 69 9 94 108 63 28 4 4 16 15 15 11 6 0 11 10 7 16 8 10 8 16 8 16 30 13 18 12 14 22 14 24 9 15 11 11 19 10 16 9 0 0 0 0 11 12 0 0 13 0 0 0 0 0 0 0 26 0 6]]></Distance>
+    <HR info="LOG;INTVECTOR;R" ><![CDATA[ 80 74 68 71 67 62 62 61 64 61 62 63 63 67 62 58 60 64 65 64 65 65 69 86 90 82 85 93 89 82 74 80 74 74 75 75 79 75 75 72 75 81 82 85 82 84 84 82 87 89 90 88 89 90 92 96 97 107 108 97 93 88 87 83 84 85 76 80 78 80 70 76 66 67 73 78]]></HR>
+   </Samples>
+   <Marks LapCount="2" >
+    <Mark Index="0" >
+     <HRAvg>67</HRAvg>
+     <Cadence>0</Cadence>
+     <Distance>1700</Distance>
+     <HR>85</HR>
+     <Time>00:04:27</Time>
+     <Type>0</Type>
+    </Mark>
+    <Mark Index="1" >
+     <HRAvg>83</HRAvg>
+     <Cadence>0</Cadence>
+     <Distance>460</Distance>
+     <HR>81</HR>
+     <Time>00:08:14</Time>
+     <Type>4</Type>
+    </Mark>
+   </Marks>
+   <Header>
+    <Activity info="LOG;INT;R" >5</Activity>
+    <Calories info="LOG;INT;R" >31</Calories>
+    <Distance info="LOG;INT;R" >2170</Distance>
+    <Duration info="LOG;TIMESPAN;R" >00:12:41</Duration>
+    <HRAvg info="LOG;INT;R" >77</HRAvg>
+    <HRMax info="LOG;INT;R" >108</HRMax>
+    <RecoveryTime info="LOG;INT;R" >1260</RecoveryTime>
+    <SampleRate info="LOG;INT;R" >10</SampleRate>
+    <Time info="LOG;DATETIME;R" >2016-03-17 07:42:00</Time>
+    <TimeAboveZone4 info="LOG;TIMESPAN;R" >00:00:00</TimeAboveZone4>
+    <TimeBelowZone1 info="LOG;TIMESPAN;R" >00:12:41</TimeBelowZone1>
+    <TimeInZone1 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone1>
+    <TimeInZone2 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone2>
+    <TimeInZone3 info="LOG;TIMESPAN;R" >00:00:00</TimeInZone3>
+   </Header>
+  </Move>
+ </Moves>
+</MovesCount>

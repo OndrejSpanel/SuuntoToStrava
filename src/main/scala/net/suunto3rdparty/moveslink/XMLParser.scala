@@ -2,7 +2,7 @@ package net.suunto3rdparty
 package moveslink
 
 import java.io.File
-import java.time.{ZoneId, ZoneOffset, ZonedDateTime}
+import java.time.{ZoneId, ZonedDateTime}
 import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 
@@ -33,21 +33,18 @@ object XMLParser {
       heartRate.toInt
     }
 
-    val timeRange = 0 until header.duration by 10000
+    val timeRange = 0 until header.durationMs by 10000
 
     def timeMs(ms: Int) = header.startTime.plusNanos(ms*1000000L)
 
-    val distMap = (distanceSamples zip timeRange).map { case (s,t) =>
-      timeMs(t) -> s
-    }
-    val hrMap = (heartRateSamples zip timeRange).map { case (s,t) =>
+    val hrWithDist = (heartRateSamples zip distanceSamples).map{ case (hr, d) => HRPoint(hr, d)}
+
+    val timedMap = (timeRange zip hrWithDist).map { case (t, s) =>
       timeMs(t) -> s
     }
 
-
-    val hrStream = new DataStreamHR(header.startTime, header.duration, SortedMap(hrMap:_*))
-    val distStream = new DataStreamDist(header.startTime, header.duration, SortedMap(distMap:_*))
-    new Move(header, hrStream, distStream)
+    val hrStream = new DataStreamHRWithDist(header.startTime, header.durationMs, SortedMap(timedMap:_*))
+    new Move(header, hrStream, hrStream)
   }
 
   def parseHeader(headerStr: Node) = {

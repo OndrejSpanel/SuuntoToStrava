@@ -3,6 +3,7 @@ package moveslink
 
 import java.io.File
 
+import strava.StravaAPIThisApp
 import org.apache.log4j.Logger
 
 object MovesLinkUploader {
@@ -14,6 +15,8 @@ object MovesLinkUploader {
   }
 
   def uploadXMLFiles(index: MoveIndex): Unit = {
+    val api = new StravaAPIThisApp
+
     val folder = getDataFolder
     val files = folder.listFiles
     var usedGPS = Set[Move]()
@@ -22,15 +25,20 @@ object MovesLinkUploader {
       if (fileName.startsWith("quest_") && fileName.endsWith(".xml")) {
         log.info("Analyzing " + fileName)
         val moves = XMLParser.parse(file)
-        moves.foreach{ move =>
+        val validMoves = moves.filter(_.streams.contains(StreamHRWithDist))
+        validMoves.foreach{ move =>
           println(s"Quest HR: ${move.toLog}")
           // upload each move separately
-          val (gpsMoves, gpsData) = index.listOverlapping(move.streams(StreamHR), StreamGPS).unzip
+          val (gpsMoves, gpsData) = index.listOverlapping(move.streams(StreamHRWithDist), StreamGPS).unzip
           usedGPS = usedGPS ++ gpsMoves
           val merged = gpsData.foldLeft(move)(_ addStream _)
           // if no GPS data found, upload the move without them
           println(s"  GPS merged: ${gpsData.map(_.toLog).mkString(", ")}")
           fit.Export(merged)
+          // upload only non-trivial results
+          if (merged.header.distance > 10 && merged.header.durationMs > 10000) {
+            api.upload(merged)
+          }
         }
       }
     }

@@ -73,7 +73,7 @@ object XMLParser {
       val dateTime = (header \ "DateTime")(0).text
       Header(
         startTime = timeToUTC(ZonedDateTime.parse(dateTime, dateFormatNoZone)),
-        duration = ((header \ "Duration")(0).text.toDouble * 1000).toInt,
+        durationMs = ((header \ "Duration")(0).text.toDouble * 1000).toInt,
         calories = Try(Util.kiloCaloriesFromKilojoules((header \ "Energy")(0).text.toDouble)).getOrElse(0),
         distance = distance
       )
@@ -143,7 +143,8 @@ object XMLParser {
             val timeTry = Try(ZonedDateTime.parse((sample \ "UTC")(0).text, dateFormat))
             // prefer UTC when present
             val timeUtc = timeTry.getOrElse(header.startTime.plusNanos((time * 1000000L).toLong))
-            val hr = hrTry.map(_.toInt).toOption
+            // replace missing values with zeroes - this is what Quest is recording on failure anyway
+            val hr = hrTry.map(_.toInt).getOrElse(0)
             val elevation = elevationTry.map(_.toInt).toOption
             (timeUtc, distanceStr.toDouble, hr, elevation)
           }
@@ -157,18 +158,20 @@ object XMLParser {
         Some((ts.map(_._1), ts.map(_._2), ts.map(_._3), ts.map(_._4)))
 
     }
-    val Unzipped4(timeSeq, distanceSeq, hrSeq, elevSeq) = periodicSamples
-    val hasHR = hrSeq.exists(_.nonEmpty)
 
-    val hrSeqValid = SortedMap((timeSeq zip hrSeq).filter(_._2.nonEmpty).map(s => s.copy(_2 = s._2.get)):_*)
-    val elevSeqValid = SortedMap((timeSeq zip elevSeq).filter(_._2.nonEmpty).map(s => s.copy(_2 = s._2.get)):_*)
-    val distanceSeqValid = SortedMap(timeSeq zip distanceSeq:_*)
+    // ignore elevation: let Strava compute it
+    val Unzipped4(timeSeq, distanceSeq, hrSeq, _) = periodicSamples
 
-    val hrStream = if (hrSeqValid.nonEmpty) Some(new DataStreamHR(header.startTime, header.duration, hrSeqValid)) else None
-    val distanceStream = new DataStreamDist(header.startTime, header.duration, distanceSeqValid)
-    val gpsStream = new DataStreamGPS(header.startTime, header.duration, SortedMap(trackPoints:_*))
+    val hrDistStream = if (hrSeq.size == distanceSeq.size && hrSeq.exists(_ != 0)) {
+      val hrWithDist = (hrSeq zip distanceSeq).map { case (hr,d) => HRPoint(hr, d) }
+      new DataStreamHRWithDist(header.startTime, header.durationMs, SortedMap(timeSeq zip hrWithDist:_*))
+    } else {
+      new DataStreamDist(header.startTime, header.durationMs, SortedMap(timeSeq zip distanceSeq:_*))
+    }
 
-    new Move(header, gpsStream +: distanceStream +: hrStream.toSeq:_*)
+    val gpsStream = new DataStreamGPS(header.startTime, header.durationMs, SortedMap(trackPoints:_*))
+
+    new Move(header, gpsStream, hrDistStream)
   }
 
   def parse(xmlFile: File): Try[Move] = {
