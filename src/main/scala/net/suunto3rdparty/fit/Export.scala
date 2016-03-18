@@ -109,9 +109,9 @@ object Export {
     }
     for {
       evGroup <- combined
-      time = evGroup._1
       ev <- evGroup._2
     } {
+      val time = evGroup._1
       val msg: Option[Mesg] = ev match {
         case gps: GPSPoint =>
           val myMsg = new RecordMesg()
