@@ -107,7 +107,7 @@ object MovesLinkUploader {
       fit.Export(move)
       // TODO: when activities are close enough and share a common HR move, merge them
       // upload only non-trivial results
-      if (!move.isAlmostEmpty(120)) {
+      if (!move.isAlmostEmpty(90)) {
         api.upload(move)
       }
     }

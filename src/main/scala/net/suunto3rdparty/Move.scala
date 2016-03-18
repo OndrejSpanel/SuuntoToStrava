@@ -6,6 +6,8 @@ import Util._
 
 case class Header(startTime: ZonedDateTime = ZonedDateTime.now, durationMs: Int = 0, calories: Int = 0, distance: Int = 0)
 
+case class Lap(name: String, timestamp: ZonedDateTime)
+
 object Move {
   implicit def ordering: Ordering[Move] = {
     new Ordering[Move] {

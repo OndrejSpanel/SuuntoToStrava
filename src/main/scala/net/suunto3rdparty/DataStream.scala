@@ -21,6 +21,9 @@ object StreamDist extends StreamType {
 object StreamHRWithDist extends StreamType {
   override def toString: String = "HR_Dist"
 }
+object StreamLap extends StreamType {
+  override def toString: String = "Lap"
+}
 
 sealed abstract class DataStream(val streamType: StreamType) {
 
@@ -49,6 +52,12 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
   type Item = GPSPoint
 
   override def pickData(data: DataMap) = new DataStreamGPS(data)
+}
+
+class DataStreamLap(override val stream: SortedMap[ZonedDateTime, String]) extends DataStream(StreamLap) {
+  type Item = String
+
+  override def pickData(data: DataMap) = new DataStreamLap(data)
 }
 
 class DataStreamHRWithDist(override val stream: SortedMap[ZonedDateTime, HRPoint]) extends DataStream(StreamHRWithDist) {

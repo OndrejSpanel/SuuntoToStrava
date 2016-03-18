@@ -113,6 +113,12 @@ object Export {
           myMsg.setTimestamp(toTimestamp(evGroup._1))
           myMsg.setDistance(dist.toFloat)
           Some(myMsg)
+        case lap: String =>
+          val myMsg = new LapMesg()
+          myMsg.setEvent(Event.LAP)
+          myMsg.setEventType(EventType.STOP)
+          myMsg.setTimestamp(toTimestamp(evGroup._1))
+          Some(myMsg)
       }
       msg.foreach(encoder.onMesg)
     }
