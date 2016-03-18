@@ -2,6 +2,7 @@ package net.suunto3rdparty
 package moveslink
 
 import java.io.File
+import java.time.{Duration, ZonedDateTime}
 
 import strava.StravaAPIThisApp
 import Util._
@@ -75,25 +76,33 @@ object MovesLinkUploader {
           processTimelines(lineGPS.tail, lineHRD, prependNonEmpty(lineGPS.headOption, processed))
         } else {
           // some overlap, handle it
-          if (gpsBeg > hrdBeg) {
-            val (takeHRD, leftHRD) = hrdMove.takeUntil(gpsBeg)
+          // check if the activity start is the same within a tolerance
 
-            processTimelines(lineGPS, prependNonEmpty(leftHRD, lineHRD.tail), prependNonEmpty(takeHRD, processed))
+          // 4 percent means approx. 5 minutes from 2 hours (120 minutes)
+          val tolerance = 0 //(lineGPS.head.duration max lineHRD.head.duration) * 0.04f
 
-          } else if (gpsBeg < hrdBeg) {
-            val (takeGPS, leftGPS) = gpsMove.takeUntil(hrdBeg)
-
-            processTimelines(prependNonEmpty(leftGPS, lineGPS.tail), lineHRD, prependNonEmpty(takeGPS, processed))
-          } else {
+          if (timeDifference(gpsBeg, hrdBeg).abs <= tolerance) {
             // same beginning - drive by HRD
             // use from GPS only as needed by HRD
-            val (takeGPS, leftGPS) = gpsMove.takeUntil(hrdEnd)
+            val (takeGPS, leftGPS) = if (timeDifference(gpsEnd, hrdEnd).abs <= tolerance) {
+              (Some(gpsMove), None)
+            } else {
+              gpsMove.takeUntil(hrdEnd)
+            }
             val merged = takeGPS.map(_.streams(StreamGPS)).map(hrdMove.addStream)
             println(s"Merged GPS ${takeGPS.map(_.toLog)} into ${hrdMove.toLog}")
 
             processTimelines(prependNonEmpty(leftGPS, lineGPS.tail), prependNonEmpty(merged, lineHRD.tail), processed)
-          }
+          } else if (gpsBeg > hrdBeg) {
+            val (takeHRD, leftHRD) = hrdMove.takeUntil(gpsBeg)
 
+            processTimelines(lineGPS, prependNonEmpty(leftHRD, lineHRD.tail), prependNonEmpty(takeHRD, processed))
+
+          } else  {
+            val (takeGPS, leftGPS) = gpsMove.takeUntil(hrdBeg)
+
+            processTimelines(prependNonEmpty(leftGPS, lineGPS.tail), lineHRD, prependNonEmpty(takeGPS, processed))
+          }
         }
 
       }

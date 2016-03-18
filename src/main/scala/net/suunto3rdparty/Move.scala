@@ -1,6 +1,6 @@
 package net.suunto3rdparty
 
-import java.time.ZonedDateTime
+import java.time.{Duration, ZonedDateTime}
 
 import Util._
 
@@ -25,6 +25,7 @@ object Move {
 
 case class Move(header: MoveHeader, streams: Map[StreamType, DataStream]) {
 
+
   def this(header: MoveHeader, streamSeq: DataStream*) = {
     this(header, streamSeq.map(s => s.streamType -> s).toMap)
   }
@@ -34,6 +35,14 @@ case class Move(header: MoveHeader, streams: Map[StreamType, DataStream]) {
 
   val startTime: Option[ZonedDateTime] = startTimeOfStreams(streams.values)
   val endTime: Option[ZonedDateTime] = endTimeOfStreams(streams.values)
+
+  def duration: Double = {
+    val durOpt = for (beg <- startTime; end <- endTime) yield {
+      Duration.between(beg, end).toMillis / 1000.0
+    }
+    durOpt.getOrElse(0.0)
+  }
+
 
   def isEmpty = startTime.isEmpty
   def isAlmostEmpty(minDurationSec: Long) = !streams.exists(_._2.stream.nonEmpty) || endTime.get < startTime.get.plusSeconds(minDurationSec)

@@ -1,7 +1,7 @@
 package net.suunto3rdparty
 
 import java.io.File
-import java.time.{ZoneOffset, ZonedDateTime}
+import java.time.{Duration, ZoneOffset, ZonedDateTime}
 import java.time.format.DateTimeFormatter
 
 object Util {
@@ -36,6 +36,10 @@ object Util {
 
   def timeToUTC(dateTime: ZonedDateTime) = {
     ZonedDateTime.ofInstant(dateTime.toInstant, ZoneOffset.UTC)
+  }
+
+  def timeDifference(beg: ZonedDateTime, end: ZonedDateTime): Double = {
+    Duration.between(beg, end).toMillis * 0.001
   }
 
   def kiloCaloriesFromKilojoules(kj: Double): Int = (kj / 4184).toInt
