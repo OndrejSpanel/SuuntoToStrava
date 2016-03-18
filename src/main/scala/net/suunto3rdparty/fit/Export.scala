@@ -157,34 +157,32 @@ object Export {
       encoder.onMesg(lapMsg)
     }
 
-    if (lapCounter > 1) {
-      {
-        val myMsg = new SessionMesg()
-        myMsg.setStartTime(toTimestamp(timeBeg))
-        myMsg.setTimestamp(toTimestamp(timeEnd))
-        myMsg.setSport(sport)
-        val durationSec = timeDifference(timeBeg, timeEnd).toFloat
-        myMsg.setTotalElapsedTime(durationSec)
-        myMsg.setTotalTimerTime(durationSec)
-        myMsg.setMessageIndex(0)
-        myMsg.setFirstLapIndex(0)
-        myMsg.setNumLaps(lapCounter + 1)
+    {
+      val myMsg = new SessionMesg()
+      myMsg.setStartTime(toTimestamp(timeBeg))
+      myMsg.setTimestamp(toTimestamp(timeEnd))
+      myMsg.setSport(sport)
+      val durationSec = timeDifference(timeBeg, timeEnd).toFloat
+      myMsg.setTotalElapsedTime(durationSec)
+      myMsg.setTotalTimerTime(durationSec)
+      myMsg.setMessageIndex(0)
+      myMsg.setFirstLapIndex(0)
+      myMsg.setNumLaps(lapCounter + 1)
 
-        myMsg.setEvent(Event.SESSION)
-        myMsg.setEventType(EventType.STOP)
+      myMsg.setEvent(Event.SESSION)
+      myMsg.setEventType(EventType.STOP)
 
-        encoder.onMesg(myMsg)
-      }
+      encoder.onMesg(myMsg)
+    }
 
-      {
-        val myMsg = new ActivityMesg()
-        myMsg.setTimestamp(toTimestamp(timeEnd))
-        myMsg.setNumSessions(1)
-        myMsg.setType(Activity.MANUAL)
-        myMsg.setEvent(Event.ACTIVITY)
-        myMsg.setEventType(EventType.STOP)
-        encoder.onMesg(myMsg)
-      }
+    {
+      val myMsg = new ActivityMesg()
+      myMsg.setTimestamp(toTimestamp(timeEnd))
+      myMsg.setNumSessions(1)
+      myMsg.setType(Activity.MANUAL)
+      myMsg.setEvent(Event.ACTIVITY)
+      myMsg.setEventType(EventType.STOP)
+      encoder.onMesg(myMsg)
     }
 
   }
