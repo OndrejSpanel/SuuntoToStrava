@@ -25,14 +25,14 @@ class DumpFit extends FlatSpec with Matchers {
     decodeFile(in) //, "record")
   }
 
-  "Output fit" should "with laps" in {
+  "Output fit" should "contain laps" in {
     val in = getClass.getResourceAsStream("/testoutputLaps.fit")
-    decodeFile(in) //, "record")
+    decodeFile(in, "record")
   }
 
-  "Exported fit" should "with laps" in {
+  "Exported fit" should "contain laps" in {
     val in = getClass.getResourceAsStream("/exportedLaps.fit")
-    decodeFile(in) //, "record")
+    decodeFile(in, "record")
   }
 
   def decodeFile(in: InputStream, ignoreMessages: String*): Unit = {
@@ -40,12 +40,12 @@ class DumpFit extends FlatSpec with Matchers {
     try {
       val listener = new MesgListener {
         override def onMesg(mesg: Mesg): Unit = {
+          println(s"${mesg.getName}")
           if (!ignoreMessages.contains(mesg.getName)) {
-            println(s"${mesg.getName}")
             val fields = mesg.getFields.asScala
             for (f <- fields) {
               f.getName match {
-                case "timestamp" =>
+                case "timestamp" | "start_time" =>
                   val time = new DateTime(f.getLongValue)
                   println(s"  ${f.getName}:${time.toString}")
                 case _ =>
