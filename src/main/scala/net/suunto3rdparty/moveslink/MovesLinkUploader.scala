@@ -2,7 +2,6 @@ package net.suunto3rdparty
 package moveslink
 
 import java.io.File
-import java.time.{Duration, ZonedDateTime}
 
 import strava.StravaAPIThisApp
 import Util._
@@ -79,7 +78,7 @@ object MovesLinkUploader {
           // check if the activity start is the same within a tolerance
 
           // 4 percent means approx. 5 minutes from 2 hours (120 minutes)
-          val tolerance = 0 //(lineGPS.head.duration max lineHRD.head.duration) * 0.04f
+          val tolerance = (lineGPS.head.duration max lineHRD.head.duration) * 0.04f
 
           if (timeDifference(gpsBeg, hrdBeg).abs <= tolerance) {
             // same beginning - drive by HRD
