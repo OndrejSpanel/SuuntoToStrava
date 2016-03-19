@@ -2,7 +2,7 @@ package net.suunto3rdparty
 package moveslink
 
 import java.io.File
-import java.time.{ZoneId, ZonedDateTime}
+import java.time._
 import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 
@@ -15,6 +15,7 @@ import scala.util.Try
 
 object XMLParser {
   private val log = Logger.getLogger(XMLParser.getClass)
+  private val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault)
 
   def parseSamples(header: Header, samples: Node): Move = {
     val distanceStr = (samples \ "Distance")(0).text
@@ -51,7 +52,6 @@ object XMLParser {
   }
 
   def parseHeader(headerStr: Node) = {
-    val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault)
 
     val durationPattern = Pattern.compile("(\\d+):(\\d+):(\\d+)\\.?(\\d*)")
 
@@ -70,7 +70,7 @@ object XMLParser {
     }
 
     val timeText = (headerStr \ "Time") (0).text
-    val startTime = timeToUTC(ZonedDateTime.parse(timeText, dateFormat))
+    val startTime = parseTime(timeText)
     val durationStr = (headerStr \ "Duration")(0).text
     val matcher = durationPattern.matcher(durationStr)
     val duration = if (matcher.matches) {
@@ -81,6 +81,10 @@ object XMLParser {
       (hour * 3600 + minute * 60 + second) * 1000 + ms
     } else 0
     Header(MoveHeader(activityType), startTime, duration, calories, distance)
+  }
+
+  def parseTime(timeText: String): ZonedDateTime = {
+    timeToUTC(ZonedDateTime.parse(timeText, dateFormat))
   }
 
   def parse(xmlFile: File): Seq[Move] = {
@@ -95,8 +99,25 @@ object XMLParser {
         val headerNode = (moveItem \ "Header")(0)
         val samples = (moveItem \ "Samples")(0)
         val header = parseHeader(headerNode)
+
+        def parseRelativeTime(timeStr: String): ZonedDateTime = {
+          val relTime = LocalTime.parse(timeStr, DateTimeFormatter.ISO_LOCAL_TIME)
+          val relTimeDuration = Duration.between(LocalTime.MIDNIGHT, relTime)
+          header.startTime.plus(relTimeDuration)
+        }
+
+        val laps = for {
+          mark <- moveItem \ "Marks" \ "Mark"
+          lapTime <- Try (parseRelativeTime((mark \ "Time")(0).text)).toOption
+        } yield {
+          Lap("Manual", lapTime)
+        }
+
         val suuntoMove = parseSamples(header, samples)
-        Some(suuntoMove)
+        val moveWithLaps = if (laps.nonEmpty) {
+          suuntoMove addStream new DataStreamLap(SortedMap(laps.map(kv => kv.timestamp -> kv.name): _*))
+        } else suuntoMove
+        Some(moveWithLaps)
       }
       catch {
         case e: Exception =>
