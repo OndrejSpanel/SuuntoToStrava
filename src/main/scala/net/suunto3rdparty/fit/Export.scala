@@ -3,8 +3,8 @@ package fit
 
 import com.garmin.fit
 import com.garmin.fit._
-import java.io.{File, OutputStream}
-import java.time.ZonedDateTime
+import java.io.File
+import java.time.{Duration, ZonedDateTime}
 
 import Util._
 
@@ -18,7 +18,15 @@ object Export {
     new FileEncoder(file)
   }
 
-  def encodeHeader(encoder: Encoder): Unit = {
+  object suuntoToFit {
+    def activityType(act: Int): (ActivityType, ActivitySubtype) = act match {
+      case 82 => (ActivityType.RUNNING, ActivitySubtype.TRACK)
+      case 5 => (ActivityType.CYCLING, ActivitySubtype.TRACK_CYCLING)
+      case _ => (ActivityType.GENERIC, ActivitySubtype.GENERIC)
+    }
+  }
+
+  def encodeHeader(encoder: Encoder, header: MoveHeader): Unit = {
     //Generate FileIdMessage
     val fileIdMesg = new FileIdMesg
     fileIdMesg.setManufacturer(Manufacturer.SUUNTO)
@@ -50,7 +58,7 @@ object Export {
   def toEncoder(move: Move, encoder: Encoder): Unit = {
 
     // start by writing a header
-    encodeHeader(encoder)
+    encodeHeader(encoder, move.header)
 
     // write all data, sorted by time
 
@@ -73,40 +81,108 @@ object Export {
       mergeMultiSamples(comb, str._2.stream)
     }
 
+    val sport = Sport.RUNNING // TODO: convert from Move
+    val timeBeg = move.startTime.get
+    val timeEnd = move.endTime.get
+
     // TODO: unify event sampling times (driven by best resolution)
     // we have the event stream sorted, now write it
+    var openLap = false
+    var lapCounter = 0
+    var lastLapStart: ZonedDateTime = timeBeg
+    def closeLap(time: ZonedDateTime): LapMesg = {
+
+      val myMsg = new LapMesg()
+      myMsg.setEvent(Event.LAP)
+      myMsg.setEventType(EventType.STOP)
+      myMsg.setStartTime(toTimestamp(lastLapStart))
+      myMsg.setTimestamp(toTimestamp(time))
+      myMsg.setMessageIndex(lapCounter)
+      val lapDurationSec = Duration.between(lastLapStart, time).toMillis / 1000.0f
+      lastLapStart = time
+      lapCounter += 1
+      myMsg.setTotalElapsedTime(lapDurationSec)
+      myMsg.setTotalTimerTime(lapDurationSec)
+      myMsg
+
+
+    }
     for {
       evGroup <- combined
       ev <- evGroup._2
     } {
+      val time = evGroup._1
       val msg: Option[Mesg] = ev match {
         case gps: GPSPoint =>
           val myMsg = new RecordMesg()
-          val longLatScale = (1L<<31).toDouble/180
-          myMsg.setTimestamp(toTimestamp(evGroup._1))
+          val longLatScale = (1L << 31).toDouble / 180
+          myMsg.setTimestamp(toTimestamp(time))
           myMsg.setPositionLong((gps.longitude * longLatScale).toInt)
           myMsg.setPositionLat((gps.latitude * longLatScale).toInt)
           Some(myMsg)
         case hr: HRPoint =>
           val myMsg = new RecordMesg()
-          if (hr.hr!=0) {
-            myMsg.setTimestamp(toTimestamp(evGroup._1))
+          if (hr.hr != 0) {
+            myMsg.setTimestamp(toTimestamp(time))
             myMsg.setHeartRate(hr.hr.toShort)
             myMsg.setDistance(hr.dist.toFloat)
             Some(myMsg)
           } else None
         case hr: Int =>
           val myMsg = new RecordMesg()
-          myMsg.setTimestamp(toTimestamp(evGroup._1))
+          myMsg.setTimestamp(toTimestamp(time))
           myMsg.setHeartRate(hr.toShort)
           Some(myMsg)
         case dist: Double =>
           val myMsg = new RecordMesg()
-          myMsg.setTimestamp(toTimestamp(evGroup._1))
+          myMsg.setTimestamp(toTimestamp(time))
           myMsg.setDistance(dist.toFloat)
           Some(myMsg)
+        case lap: String =>
+          if (timeDifference(time, timeEnd).abs < 5) {
+            None
+          } else if (openLap) {
+            val lapMsg = closeLap(time)
+            Some(lapMsg)
+          } else {
+            openLap = true
+            None
+          }
       }
       msg.foreach(encoder.onMesg)
+    }
+
+    if (openLap) {
+      val lapMsg = closeLap(move.endTime.get)
+      encoder.onMesg(lapMsg)
+    }
+
+    {
+      val myMsg = new SessionMesg()
+      myMsg.setStartTime(toTimestamp(timeBeg))
+      myMsg.setTimestamp(toTimestamp(timeEnd))
+      myMsg.setSport(sport)
+      val durationSec = timeDifference(timeBeg, timeEnd).toFloat
+      myMsg.setTotalElapsedTime(durationSec)
+      myMsg.setTotalTimerTime(durationSec)
+      myMsg.setMessageIndex(0)
+      myMsg.setFirstLapIndex(0)
+      myMsg.setNumLaps(lapCounter + 1)
+
+      myMsg.setEvent(Event.SESSION)
+      myMsg.setEventType(EventType.STOP)
+
+      encoder.onMesg(myMsg)
+    }
+
+    {
+      val myMsg = new ActivityMesg()
+      myMsg.setTimestamp(toTimestamp(timeEnd))
+      myMsg.setNumSessions(1)
+      myMsg.setType(Activity.MANUAL)
+      myMsg.setEvent(Event.ACTIVITY)
+      myMsg.setEventType(EventType.STOP)
+      encoder.onMesg(myMsg)
     }
 
   }

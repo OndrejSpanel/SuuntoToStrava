@@ -106,6 +106,33 @@ object XMLParser {
       }
     }
 
+    val lapPoints = {
+      /* GPS Track Pod lap is stored as:
+			<Sample>
+				<UTC>2016-03-18T10:19:31</UTC>
+				<Time>24.891</Time>
+      	<Events>
+					<Lap>
+						<Type>Manual</Type>
+						<Duration>24.9</Duration>
+						<Distance>15</Distance>
+					</Lap>
+				</Events>
+			</Sample>
+      */
+      sampleList.toList.flatMap { sample =>
+        val lapTime = Try {
+          //noinspection ScalaUnusedSymbol
+          for (lap <- (sample \ "Events" \ "Lap" \ "Type").headOption) yield {
+            val timestamp = (sample \ "UTC") (0).text
+            val utc = timeToUTC(ZonedDateTime.parse(timestamp, dateFormatNoZone))
+            Lap(lap.text, utc)
+          }
+        }
+
+        lapTime.toOption.flatten.toSeq
+      }
+    }
 
     val trackPoints = {
       val paused = new PauseState
@@ -172,7 +199,12 @@ object XMLParser {
 
     val gpsStream = new DataStreamGPS(SortedMap(trackPoints:_*))
 
-    new Move(MoveHeader(), gpsStream, hrDistStream)
+    if (lapPoints.nonEmpty) {
+      val lapStream = new DataStreamLap(SortedMap(lapPoints.map(l => l.timestamp -> l.name):_*))
+      new Move(MoveHeader(), gpsStream, hrDistStream, lapStream)
+    } else {
+      new Move(MoveHeader(), gpsStream, hrDistStream)
+    }
   }
 
   def parse(xmlFile: File): Try[Move] = {

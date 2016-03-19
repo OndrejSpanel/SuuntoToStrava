@@ -43,6 +43,8 @@ object XMLParser {
       timeMs(t) -> s
     }
 
+    // TODO: laps
+
     val hrStream = new DataStreamHRWithDist(SortedMap(timedMap:_*))
     new Move(MoveHeader(), hrStream)
   }
