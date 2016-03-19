@@ -151,12 +151,18 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
 object StravaAPIThisApp {
 
   def getAPIParams: StravaAPIParams = {
-    val home = new File(Util.getSuuntoHome, "Moveslink")
+
     val appId = 8138
+    val callback = "http://localhost:8080/stravaAuth.html"
+    val code = StravaAuth(appId,callback)
+
+    // now wait until the auth is done
+
+    val home = new File(Util.getSuuntoHome, "Moveslink")
     val tokenFile = new File(home, "strava.id")
 
     val source = scala.io.Source.fromFile(tokenFile)
-    val (clientSecret, token, code) = try {
+    val (clientSecret, token, _) = try {
       val lines = source.getLines()
       val secret = lines.next
       val token = lines.next
