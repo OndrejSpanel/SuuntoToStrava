@@ -27,7 +27,17 @@ object StravaAuth {
           authResult.failure(new IllegalArgumentException(s"Unexpected URL $requestUrl"))
       }
 
-      val response = "Authenticated"
+      val responseXml =
+        <html>
+          <title>Suunto To Strava Authenticated</title>
+          <body>
+            <h1>Suunto To Strava Authenticated</h1>
+            <p>Suunto To Strava automated upload application authenticated to Strava</p>
+          </body>
+        </html>
+
+      val response = responseXml.toString
+
       t.sendResponseHeaders(200, response.length)
       val os = t.getResponseBody
       os.write(response.getBytes)
