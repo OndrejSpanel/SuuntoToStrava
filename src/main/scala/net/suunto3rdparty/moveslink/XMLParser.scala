@@ -11,6 +11,7 @@ import org.apache.log4j.Logger
 import Util._
 
 import scala.collection.immutable.SortedMap
+import scala.util.Try
 
 object XMLParser {
   private val log = Logger.getLogger(XMLParser.getClass)
@@ -46,7 +47,7 @@ object XMLParser {
     // TODO: laps
 
     val hrStream = new DataStreamHRWithDist(SortedMap(timedMap:_*))
-    new Move(MoveHeader(), hrStream)
+    new Move(header.moveHeader, hrStream)
   }
 
   def parseHeader(headerStr: Node) = {
@@ -56,6 +57,17 @@ object XMLParser {
 
     val calories = (headerStr \ "Calories")(0).text.toInt
     val distance = (headerStr \ "Distance")(0).text.toInt
+
+    val sportType = Try((headerStr \ "Activity")(0).text.toInt).getOrElse(0)
+
+    import MoveHeader.ActivityType._
+    // TODO: add at least most common sports
+    val activityType = sportType match {
+      case 82 => RunningTrail
+      case 75 => Orienteering
+      case 5 => MountainBike
+      case _ => Unknown
+    }
 
     val timeText = (headerStr \ "Time") (0).text
     val startTime = timeToUTC(ZonedDateTime.parse(timeText, dateFormat))
@@ -68,7 +80,7 @@ object XMLParser {
       val ms = if (!matcher.group(4).isEmpty) matcher.group(4).toInt else 0
       (hour * 3600 + minute * 60 + second) * 1000 + ms
     } else 0
-    Header(startTime, duration, calories, distance)
+    Header(MoveHeader(activityType), startTime, duration, calories, distance)
   }
 
   def parse(xmlFile: File): Seq[Move] = {
@@ -80,9 +92,9 @@ object XMLParser {
     XMLParser.log.debug(moveList.size + " move elements in this file")
     val suuntoMoves = moveList.zipWithIndex.flatMap { case (moveItem, i) =>
       try {
-        val headerStr = (moveItem \ "Header")(0)
+        val headerNode = (moveItem \ "Header")(0)
         val samples = (moveItem \ "Samples")(0)
-        val header = parseHeader(headerStr)
+        val header = parseHeader(headerNode)
         val suuntoMove = parseSamples(header, samples)
         Some(suuntoMove)
       }

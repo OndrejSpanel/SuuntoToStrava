@@ -15,4 +15,5 @@ object MoveHeader {
 
   }
 }
-case class MoveHeader(moveType: String = "Run")
+
+case class MoveHeader(moveType: MoveHeader.ActivityType = MoveHeader.ActivityType.RunningTrail)

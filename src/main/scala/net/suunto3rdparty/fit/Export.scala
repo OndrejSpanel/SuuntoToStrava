@@ -7,6 +7,7 @@ import java.io.File
 import java.time.{Duration, ZonedDateTime}
 
 import Util._
+import net.suunto3rdparty.MoveHeader.ActivityType._
 
 import scala.collection.immutable.SortedMap
 
@@ -81,7 +82,14 @@ object Export {
       mergeMultiSamples(comb, str._2.stream)
     }
 
-    val sport = Sport.RUNNING // TODO: convert from Move
+    val (sport, subsport) = move.header.moveType match {
+      case RunningTrail => (Sport.RUNNING, SubSport.TRAIL)
+      case RunningRoad => (Sport.RUNNING, SubSport.STREET)
+      case Orienteering => (Sport.RUNNING, SubSport.TRAIL)
+      case MountainBike => (Sport.CYCLING, SubSport.MOUNTAIN)
+      case Cycling => (Sport.CYCLING, SubSport.ROAD)
+      case Unknown => (Sport.GENERIC, SubSport.GENERIC)
+    }
     val timeBeg = move.startTime.get
     val timeEnd = move.endTime.get
 
@@ -162,6 +170,7 @@ object Export {
       myMsg.setStartTime(toTimestamp(timeBeg))
       myMsg.setTimestamp(toTimestamp(timeEnd))
       myMsg.setSport(sport)
+      myMsg.setSubSport(subsport)
       val durationSec = timeDifference(timeBeg, timeEnd).toFloat
       myMsg.setTotalElapsedTime(durationSec)
       myMsg.setTotalTimerTime(durationSec)
