@@ -111,9 +111,6 @@ object MovesLinkUploader {
 
     toUpload.foreach { move =>
       println(s"Uploading: ${move.toLog}")
-      // upload each move separately
-      fit.Export(move)
-      // TODO: when activities are close enough and share a common HR move, merge them
       // upload only non-trivial results
       if (!move.isAlmostEmpty(90)) {
         api.upload(move)
