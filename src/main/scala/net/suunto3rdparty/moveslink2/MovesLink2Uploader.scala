@@ -26,20 +26,22 @@ object MovesLink2Uploader {
     true
   }
 
-  def readXMLFiles(): Set[Move] = {
+  def readXMLFiles(alreadyUploaded: Set[String]): Set[Move] = {
     var index = Set[Move]()
     val folder = getDataFolder
     val files = folder.listFiles
-    for (file <- files) {
-      val fileName = file.getName.toLowerCase
-      if ((fileName.startsWith("log-") && fileName.endsWith(".xml")) || fileName.endsWith(".sml")) {
-        MovesLink2Uploader.log.info("Analyzing " + fileName)
-        val parser = XMLParser.parse(file)
-        parser.foreach { move =>
-          index += move
-          println(s"GPS: ${move.toLog}")
-        }
+    for {
+      file <- files
+      fileName = file.getName.toLowerCase
+      if !alreadyUploaded.contains(fileName) && fileName.endsWith(".sml")
+    } yield {
+      MovesLink2Uploader.log.info("Analyzing " + fileName)
+      val parsed = XMLParser.parse(fileName, file)
+      parsed.foreach { move =>
+        index += move
+        println(s"GPS: ${move.toLog}")
       }
+      parsed
     }
     index
   }

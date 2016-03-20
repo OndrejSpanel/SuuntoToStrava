@@ -14,10 +14,12 @@ object Main extends App {
   if (!ml2f.checkIfEnvOkay || !mlf.checkIfEnvOkay) {
     throw new UnsupportedOperationException()
   }
-  val index = ml2f.readXMLFiles()
+  val alreadyUploaded = mlf.listAlreadyUploaded()
+
+  val index = ml2f.readXMLFiles(alreadyUploaded)
   log.info("Reading MovesLink2 done.")
   log.info("Reading MovesLink ...")
-  mlf.uploadXMLFiles(index)
+  mlf.uploadXMLFiles(alreadyUploaded, index)
   log.info("Upload MovesLink done.")
 
 }
