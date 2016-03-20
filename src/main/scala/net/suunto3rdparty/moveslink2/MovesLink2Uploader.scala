@@ -34,7 +34,7 @@ object MovesLink2Uploader {
       val fileName = file.getName.toLowerCase
       if ((fileName.startsWith("log-") && fileName.endsWith(".xml")) || fileName.endsWith(".sml")) {
         MovesLink2Uploader.log.info("Analyzing " + fileName)
-        val parser = XMLParser.parse(file)
+        val parser = XMLParser.parse(fileName, file)
         parser.foreach { move =>
           index += move
           println(s"GPS: ${move.toLog}")

@@ -82,7 +82,7 @@ object XMLParser {
   }
 
 
-  def parseSamples(header: Header, samples: NodeSeq, rr: Seq[Int]): Move = {
+  def parseSamples(fileName: String, header: Header, samples: NodeSeq, rr: Seq[Int]): Move = {
     val sampleList = samples \ "Sample"
 
     class PauseState {
@@ -202,13 +202,13 @@ object XMLParser {
 
     if (lapPoints.nonEmpty) {
       val lapStream = new DataStreamLap(SortedMap(lapPoints.map(l => l.timestamp -> l.name):_*))
-      new Move(MoveHeader(), gpsStream, hrDistStream, lapStream)
+      new Move(Set(fileName), MoveHeader(), gpsStream, hrDistStream, lapStream)
     } else {
-      new Move(MoveHeader(), gpsStream, hrDistStream)
+      new Move(Set(fileName), MoveHeader(), gpsStream, hrDistStream)
     }
   }
 
-  def parse(xmlFile: File): Try[Move] = {
+  def parse(fileName: String, xmlFile: File): Try[Move] = {
     XMLParser.log.debug("Parsing " + xmlFile.getName)
 
     val (doc, header) = if (xmlFile.getName.endsWith(".xml")) {
@@ -226,7 +226,7 @@ object XMLParser {
     val moves = for {
       h <- parseHeader(header)
     } yield {
-      parseSamples(h, samples, rr.getOrElse(Seq()))
+      parseSamples(fileName, h, samples, rr.getOrElse(Seq()))
     }
 
     moves

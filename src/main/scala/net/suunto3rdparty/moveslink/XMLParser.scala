@@ -17,7 +17,7 @@ object XMLParser {
   private val log = Logger.getLogger(XMLParser.getClass)
   private val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault)
 
-  def parseSamples(header: Header, samples: Node): Move = {
+  def parseSamples(fileName: String, header: Header, samples: Node): Move = {
     val distanceStr = (samples \ "Distance")(0).text
     val heartRateStr = (samples \ "HR")(0).text
     var currentSum: Double = 0
@@ -48,7 +48,7 @@ object XMLParser {
     // TODO: laps
 
     val hrStream = new DataStreamHRWithDist(SortedMap(timedMap:_*))
-    new Move(header.moveHeader, hrStream)
+    new Move(Set(fileName), header.moveHeader, hrStream)
   }
 
   def parseHeader(headerStr: Node) = {
@@ -87,7 +87,7 @@ object XMLParser {
     timeToUTC(ZonedDateTime.parse(timeText, dateFormat))
   }
 
-  def parse(xmlFile: File): Seq[Move] = {
+  def parse(fileName: String, xmlFile: File): Seq[Move] = {
     XMLParser.log.debug("Parsing " + xmlFile.getName)
     val document = XML.loadFile(xmlFile)
     val moves = document \ "Moves"
@@ -113,9 +113,9 @@ object XMLParser {
           Lap("Manual", lapTime)
         }
 
-        val suuntoMove = parseSamples(header, samples)
+        val suuntoMove = parseSamples(fileName, header, samples)
         val moveWithLaps = if (laps.nonEmpty) {
-          suuntoMove addStream new DataStreamLap(SortedMap(laps.map(kv => kv.timestamp -> kv.name): _*))
+          suuntoMove.addStream(Set(), new DataStreamLap(SortedMap(laps.map(kv => kv.timestamp -> kv.name): _*)))
         } else suuntoMove
         Some(moveWithLaps)
       }

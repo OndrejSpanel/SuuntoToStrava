@@ -23,11 +23,10 @@ object Move {
   }
 }
 
-case class Move(header: MoveHeader, streams: Map[StreamType, DataStream]) {
+case class Move(fileName: Set[String], header: MoveHeader, streams: Map[StreamType, DataStream]) {
 
-
-  def this(header: MoveHeader, streamSeq: DataStream*) = {
-    this(header, streamSeq.map(s => s.streamType -> s).toMap)
+  def this(fileName: Set[String], header: MoveHeader, streamSeq: DataStream*) = {
+    this(fileName, header, streamSeq.map(s => s.streamType -> s).toMap)
   }
 
   private def startTimeOfStreams(ss: Iterable[DataStream]) = ss.flatMap(_.startTime).minOpt
@@ -49,7 +48,7 @@ case class Move(header: MoveHeader, streams: Map[StreamType, DataStream]) {
 
   def toLog: String = streams.mapValues(_.toLog).mkString(", ")
 
-  def addStream(stream: DataStream) = copy(streams = streams + (stream.streamType -> stream))
+  def addStream(streamFileName: Set[String], stream: DataStream) = copy(streams = streams + (stream.streamType -> stream), fileName = fileName ++ streamFileName)
 
   def takeUntil(time: ZonedDateTime): (Option[Move], Option[Move]) = {
     val split = streams.mapValues(_.takeUntil(time))

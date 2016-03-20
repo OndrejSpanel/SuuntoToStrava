@@ -1,7 +1,7 @@
 package net.suunto3rdparty
 package moveslink
 
-import java.io.File
+import java.io.{File, IOException}
 
 import strava.StravaAPIThisApp
 import Util._
@@ -28,7 +28,7 @@ object MovesLinkUploader {
       if fileName.startsWith("quest_") && fileName.endsWith(".xml")
     } yield {
       log.info("Analyzing " + fileName)
-      val moves = XMLParser.parse(file)
+      val moves = XMLParser.parse(fileName, file)
       val validMoves = moves.filter(_.streams.contains(StreamHRWithDist))
 
       validMoves.foreach(move => println(s"Quest HR: ${move.toLog}"))
@@ -88,7 +88,7 @@ object MovesLinkUploader {
             } else {
               gpsMove.takeUntil(hrdEnd)
             }
-            val merged = takeGPS.map(_.streams(StreamGPS)).map(hrdMove.addStream)
+            val merged = takeGPS.map(m => (m.streams(StreamGPS), m)).map(sm => hrdMove.addStream(sm._2.fileName, sm._1))
             println(s"Merged GPS ${takeGPS.map(_.toLog)} into ${hrdMove.toLog}")
 
             processTimelines(prependNonEmpty(leftGPS, lineGPS.tail), prependNonEmpty(merged, lineHRD.tail), processed)
@@ -109,8 +109,24 @@ object MovesLinkUploader {
 
     val toUpload = processTimelines(timelineGPS, timelineHR, Nil).reverse
 
+    val upload = new File(folder, "/uploadedToStrava")
+    try {
+      upload.mkdir()
+    } catch {
+      case _ : SecurityException => // expected (can already exist)
+    }
+
     toUpload.foreach { move =>
       println(s"Uploading: ${move.toLog}")
+      for (filename <- move.fileName) {
+        val markFile = new File(upload, "/" + filename)
+        try {
+          markFile.createNewFile()
+        } catch {
+          case _: IOException =>
+        }
+      }
+
       // upload only non-trivial results
       if (!move.isAlmostEmpty(90)) {
         api.upload(move)
