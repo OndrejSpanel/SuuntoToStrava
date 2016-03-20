@@ -10,14 +10,16 @@ import org.apache.log4j.Logger
 import scala.annotation.tailrec
 
 object MovesLinkUploader {
+
   private val log = Logger.getLogger(getClass)
+  private val uploadedFolderName = "/uploadedToStrava"
 
   private def getDataFolder: File = {
     val suuntoHome = Util.getSuuntoHome
     new File(suuntoHome, "Moveslink")
   }
 
-  def uploadXMLFiles(index: Set[Move]): Unit = {
+  def uploadXMLFiles(alreadyUploaded: Set[String], index: Set[Move]): Unit = {
     val api = new StravaAPIThisApp
 
     val folder = getDataFolder
@@ -25,6 +27,7 @@ object MovesLinkUploader {
     val questMovesGather = for {
       file <- files
       fileName = file.getName.toLowerCase
+      if !alreadyUploaded.contains(fileName)
       if fileName.startsWith("quest_") && fileName.endsWith(".xml")
     } yield {
       log.info("Analyzing " + fileName)
@@ -109,7 +112,7 @@ object MovesLinkUploader {
 
     val toUpload = processTimelines(timelineGPS, timelineHR, Nil).reverse
 
-    val upload = new File(folder, "/uploadedToStrava")
+    val upload = new File(folder, uploadedFolderName)
     try {
       upload.mkdir()
     } catch {
@@ -132,6 +135,13 @@ object MovesLinkUploader {
         api.upload(move)
       }
     }
+  }
+
+  def listAlreadyUploaded(): Set[String] = {
+    val folder = getDataFolder
+    val uploaded = new File(folder, uploadedFolderName)
+    val files = uploaded.listFiles
+    files.map(_.getName.toLowerCase)(collection.breakOut)
   }
 
   def checkIfEnvOkay: Boolean = {
