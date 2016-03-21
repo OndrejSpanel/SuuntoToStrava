@@ -39,4 +39,4 @@ Some code (Suunto Move file parsers) adapted from https://github.com/oldhu/suunt
 [SuuntoGPS]: http://www.suunto.com/Products/PODs/Suunto-GPS-Track-POD/
 [SuuntoQuest]: http://www.suunto.com/sports-watch-collections/Suunto-Quest-Collection/
 [Strava]: https://www.strava.com
-[issues]: ./issues
+[issues]: ../../issues

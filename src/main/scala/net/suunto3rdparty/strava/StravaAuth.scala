@@ -33,6 +33,7 @@ object StravaAuth {
           <body>
             <h1>Suunto To Strava Authenticated</h1>
             <p>Suunto To Strava automated upload application authenticated to Strava</p>
+            <p>Proceed to <a href="https://www.strava.com">Strava</a></p>
           </body>
         </html>
 
