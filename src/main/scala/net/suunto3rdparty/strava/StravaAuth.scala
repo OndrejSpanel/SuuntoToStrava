@@ -20,7 +20,8 @@ object StravaAuth {
   private val authResult = Promise[String]()
   private var server: Option[ServerShutdown] = None
 
-  var reportStatus: String = ""
+  var reportProgress: String = "Processing and uploading..."
+  var reportResult: String = ""
 
   abstract class HttpHandlerHelper extends HttpHandler {
     protected def sendResponse(code: Int, t: HttpExchange, responseXml: Elem): Unit = {
@@ -35,17 +36,10 @@ object StravaAuth {
   }
   object StatusHandler extends HttpHandlerHelper {
     override def handle(httpExchange: HttpExchange): Unit = {
-      def checkStatus() = {
-        server.foreach(_.latch.countDown())
-        reportStatus
-      }
-
-      if (reportStatus.nonEmpty) {
+      if (reportResult.nonEmpty) {
         val response =
           <div>
-          <h3>Status:
-            {checkStatus()}
-          </h3>
+          <h3>{reportResult}</h3>
           <p>Proceed to:
             <br/>
             <a href="https://www.strava.com">Strava</a> <br/>
@@ -54,8 +48,9 @@ object StravaAuth {
           </div>
 
         sendResponse(200, httpExchange, response)
+        server.foreach(_.latch.countDown())
       } else {
-        val response = <h3>Processing and uploading...</h3>
+        val response = <h3>{reportProgress}</h3>
         sendResponse(202, httpExchange, response)
       }
     }
@@ -113,7 +108,7 @@ function updateStatus(){
     xmlhttp.open("POST","./$statusPath",true); /* POST to prevent caching */
     xmlhttp.setRequestHeader("Content-type","application/x-www-form-urlencoded");
     xmlhttp.send("");
-  }, 3000)
+  }, 2000)
 }
 """
 
@@ -193,8 +188,12 @@ function updateStatus(){
     Try (Await.result(authResult.future, Duration(5, TimeUnit.MINUTES))).toOption
   }
 
+  def progress(status: String): Unit = {
+    reportProgress = status
+  }
+
   def stop(status: String): Unit = {
-    reportStatus = status
+    reportResult = status
     server.foreach { s =>
       // based on http://stackoverflow.com/a/36129257/16673
       // we do not need a CountDownLatch, as Await on the promise makes sure the response serving has already started

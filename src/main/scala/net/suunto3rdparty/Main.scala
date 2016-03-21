@@ -24,7 +24,7 @@ object Main extends App {
     val index = ml2f.readXMLFiles(alreadyUploaded)
     log.info("Reading MovesLink2 done.")
     log.info("Reading MovesLink ...")
-    val uploaded = mlf.uploadXMLFiles(api, alreadyUploaded, index)
+    val uploaded = mlf.uploadXMLFiles(api, alreadyUploaded, index, (num, total) => StravaAuth.progress(s"Processing $num of $total files"))
     log.info("Upload MovesLink done.")
     StravaAuth.stop(s"Completed, moves uploaded: $uploaded ")
   } else {
