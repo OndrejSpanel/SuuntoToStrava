@@ -22,9 +22,32 @@ object StravaAuth {
   object ServerStatusSent extends ServerEvent
   object ServerDoneSent extends ServerEvent
 
+
   private case class ServerShutdown(server: HttpServer, executor: ExecutorService, events: LinkedBlockingQueue[ServerEvent])
   private val authResult = Promise[String]()
   private var server: Option[ServerShutdown] = None
+
+  val timeoutThread = new Thread(new Runnable {
+    override def run(): Unit = {
+      @tailrec
+      def pollUntilTerminated(): Unit = {
+        val event = try {
+          server.flatMap(s => Option(s.events.poll(pollPeriod * 5, TimeUnit.MILLISECONDS)))
+        } catch {
+          case _: InterruptedException =>
+            return
+        }
+        if (event.nonEmpty && event.get != ServerDoneSent) {
+          pollUntilTerminated()
+        } else {
+          println("Browser closed? Status not polled, timeout")
+        }
+      }
+
+      pollUntilTerminated()
+    }
+  })
+
 
   var reportProgress: String = "Processing and uploading..."
   var reportResult: String = ""
@@ -192,7 +215,11 @@ function updateStatus(){
         e.printStackTrace()
     }
 
-    Try (Await.result(authResult.future, Duration(5, TimeUnit.MINUTES))).toOption
+    val ret = Try (Await.result(authResult.future, Duration(5, TimeUnit.MINUTES))).toOption
+
+    timeoutThread.start()
+
+    ret
   }
 
   def progress(status: String): Unit = {
@@ -203,19 +230,8 @@ function updateStatus(){
     reportResult = status
     server.foreach { s =>
       // based on http://stackoverflow.com/a/36129257/16673
+      timeoutThread.join()
       // we do not need a CountDownLatch, as Await on the promise makes sure the response serving has already started
-      @tailrec
-      def pollUntilTerminated(): Unit = {
-        val event = try {
-          s.events.poll(pollPeriod * 5, TimeUnit.MILLISECONDS)
-        } catch {
-          case _: InterruptedException =>
-            return
-        }
-        if (event != null && event != ServerDoneSent) pollUntilTerminated()
-      }
-
-      pollUntilTerminated()
       s.executor.shutdown()
       s.executor.awaitTermination(1, TimeUnit.MINUTES); // wait until all tasks complete (i. e. all responses are sent)
       s.server.stop(0)
