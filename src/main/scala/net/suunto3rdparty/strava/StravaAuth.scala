@@ -13,13 +13,50 @@ import scala.util.Try
 import scala.xml.Elem
 
 object StravaAuth {
+  private val callbackPath = "stravaAuth.html"
+  private val statusPath = "status.html"
 
+  private case class ServerShutdown(server: HttpServer, executor: ExecutorService, latch: CountDownLatch)
+  private val authResult = Promise[String]()
+  private var server: Option[ServerShutdown] = None
 
-  val authResult = Promise[String]()
-  case class ServerShutdown(server: HttpServer, executor: ExecutorService)
-  var server: Option[ServerShutdown] = None
+  var reportProgress: String = "Processing and uploading..."
+  var reportResult: String = ""
 
-  object HttpHandler extends HttpHandler {
+  abstract class HttpHandlerHelper extends HttpHandler {
+    protected def sendResponse(code: Int, t: HttpExchange, responseXml: Elem): Unit = {
+      val response = responseXml.toString
+
+      t.sendResponseHeaders(code, response.length)
+      val os = t.getResponseBody
+      os.write(response.getBytes)
+      os.close()
+    }
+
+  }
+  object StatusHandler extends HttpHandlerHelper {
+    override def handle(httpExchange: HttpExchange): Unit = {
+      if (reportResult.nonEmpty) {
+        val response =
+          <div>
+          <h3>{reportResult}</h3>
+          <p>Proceed to:
+            <br/>
+            <a href="https://www.strava.com">Strava</a> <br/>
+            <a href="https://www.strava.com/athlete/training">My Activities</a>
+          </p>
+          </div>
+
+        sendResponse(200, httpExchange, response)
+        server.foreach(_.latch.countDown())
+      } else {
+        val response = <h3>{reportProgress}</h3>
+        sendResponse(202, httpExchange, response)
+      }
+    }
+  }
+
+  object AuthHandler extends HttpHandlerHelper {
 
     def handle(t: HttpExchange): Unit = {
       val requestUrl = t.getRequestURI
@@ -42,18 +79,57 @@ object StravaAuth {
     }
 
     private def respondAuthSuccess(t: HttpExchange): Unit = {
-      val responseXml =
-        <html>
+      val scriptText =
+      //language=<JavaScript>
+s"""
+function updateStatus(){
+  setTimeout(function(){
+    var xmlhttp;
+    if (window.XMLHttpRequest) { /* code for IE7+, Firefox, Chrome, Opera, Safari */
+      xmlhttp=new XMLHttpRequest();
+    }
+    else { /* code for IE6, IE5 */
+      xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+    }
+
+    /* the callback function to be callled when AJAX request comes back */
+    xmlhttp.onreadystatechange=function(){
+      if (xmlhttp.readyState==4) {
+        if(xmlhttp.status==200){
+          document.getElementById("myDiv").innerHTML=xmlhttp.responseText;
+        } else if (xmlhttp.status==202){
+          document.getElementById("myDiv").innerHTML=xmlhttp.responseText;
+          updateStatus() /* schedule recursively another update */
+        } else {
+          document.getElementById("myDiv").innerHTML="<h3>Application not responding</h3>";
+        }
+      }
+    };
+    xmlhttp.open("POST","./$statusPath",true); /* POST to prevent caching */
+    xmlhttp.setRequestHeader("Content-type","application/x-www-form-urlencoded");
+    xmlhttp.send("");
+  }, 2000)
+}
+"""
+
+        val responseXml = <html>
+          <head>
+            <script type="text/javascript">
+              {scala.xml.Unparsed(scriptText)}
+            </script>
+          </head>
+
           <title>Suunto To Strava Authentication</title>
           <body>
             <h1>Suunto To Strava Authenticated</h1>
             <p>Suunto To Strava automated upload application authenticated to Strava</p>
-            <p>Proceed to:
-              <br/>
-              <a href="https://www.strava.com">Strava</a> <br/>
-              <a href="https://www.strava.com/athlete/training">My Activities</a>
-            </p>
+
+            <div id="myDiv">
+              <h3>Starting processing...</h3>
+            </div>
+
           </body>
+          <script>updateStatus()</script>
         </html>
 
       sendResponse(200, t, responseXml)
@@ -79,30 +155,24 @@ object StravaAuth {
       sendResponse(400, t, responseXml)
     }
 
-    private def sendResponse(code: Int, t: HttpExchange, responseXml: Elem): Unit = {
-      val response = responseXml.toString
-
-      t.sendResponseHeaders(code, response.length)
-      val os = t.getResponseBody
-      os.write(response.getBytes)
-      os.close()
-    }
   }
 
   // http://stackoverflow.com/a/3732328/16673
-  def startHttpServer(callbackPort: Int, callbackPath: String) = {
+  private def startHttpServer(callbackPort: Int) = {
     val ex = Executors.newSingleThreadExecutor()
+    val latch = new CountDownLatch(1)
 
     val server = HttpServer.create(new InetSocketAddress(8080), 0)
-    server.createContext(s"/$callbackPath", HttpHandler)
+    server.createContext(s"/$callbackPath", AuthHandler)
+    server.createContext(s"/$statusPath", StatusHandler)
 
     server.setExecutor(ex) // creates a default executor
     server.start()
-    ServerShutdown(server, ex)
+    ServerShutdown(server, ex, latch)
   }
 
-  def apply(appId: Int, callbackPort: Int, callbackPath: String, access: String): Option[String] = {
-    server = Some(startHttpServer(callbackPort, callbackPath))
+  def apply(appId: Int, callbackPort: Int, access: String): Option[String] = {
+    server = Some(startHttpServer(callbackPort))
 
     val callbackUrl = s"http://localhost:$callbackPort/$callbackPath"
     val forcePrompt = false // useful for debugging / troubleshooting
@@ -118,10 +188,16 @@ object StravaAuth {
     Try (Await.result(authResult.future, Duration(5, TimeUnit.MINUTES))).toOption
   }
 
-  def stop(): Unit = {
+  def progress(status: String): Unit = {
+    reportProgress = status
+  }
+
+  def stop(status: String): Unit = {
+    reportResult = status
     server.foreach { s =>
       // based on http://stackoverflow.com/a/36129257/16673
       // we do not need a CountDownLatch, as Await on the promise makes sure the response serving has already started
+      s.latch.await(10, TimeUnit.MINUTES)
       s.executor.shutdown()
       s.executor.awaitTermination(1, TimeUnit.MINUTES); // wait until all tasks complete (i. e. all responses are sent)
       s.server.stop(0)

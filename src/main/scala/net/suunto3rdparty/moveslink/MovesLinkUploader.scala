@@ -19,7 +19,7 @@ object MovesLinkUploader {
     new File(suuntoHome, "Moveslink")
   }
 
-  def uploadXMLFiles(api: StravaAPI, alreadyUploaded: Set[String], index: Set[Move]): Unit = {
+  def uploadXMLFiles(api: StravaAPI, alreadyUploaded: Set[String], index: Set[Move], progress: (Int, Int) => Unit): Int = {
 
     val folder = getDataFolder
     val files = folder.listFiles
@@ -118,8 +118,20 @@ object MovesLinkUploader {
       case _ : SecurityException => // expected (can already exist)
     }
 
+    var uploaded = 0
+    var processed = 0
+    val total = toUpload.size
+
     toUpload.foreach { move =>
       println(s"Uploading: ${move.toLog}")
+
+      // upload only non-trivial results
+      if (!move.isAlmostEmpty(90)) {
+        api.upload(move)
+        uploaded += 1
+      }
+      processed += 1
+
       for (filename <- move.fileName) {
         val markFile = new File(upload, "/" + filename)
         try {
@@ -129,11 +141,9 @@ object MovesLinkUploader {
         }
       }
 
-      // upload only non-trivial results
-      if (!move.isAlmostEmpty(90)) {
-        api.upload(move)
-      }
+      progress(processed, total)
     }
+    uploaded
   }
 
   def listAlreadyUploaded(): Set[String] = {
