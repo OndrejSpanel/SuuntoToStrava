@@ -3,7 +3,7 @@ package moveslink
 
 import java.io.{File, IOException}
 
-import strava.StravaAPIThisApp
+import strava.StravaAPI
 import Util._
 import org.apache.log4j.Logger
 
@@ -19,8 +19,7 @@ object MovesLinkUploader {
     new File(suuntoHome, "Moveslink")
   }
 
-  def uploadXMLFiles(alreadyUploaded: Set[String], index: Set[Move]): Unit = {
-    val api = new StravaAPIThisApp
+  def uploadXMLFiles(api: StravaAPI, alreadyUploaded: Set[String], index: Set[Move]): Unit = {
 
     val folder = getDataFolder
     val files = folder.listFiles

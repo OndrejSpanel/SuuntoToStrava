@@ -32,9 +32,7 @@ object Export {
     val fileIdMesg = new FileIdMesg
     fileIdMesg.setManufacturer(Manufacturer.SUUNTO)
     fileIdMesg.setType(fit.File.ACTIVITY)
-    fileIdMesg.setProduct(1000) // TODO: use from Move of find a value
-    fileIdMesg.setSerialNumber(12345L) // TODO: use from Move of find a value
-
+    fileIdMesg.setProduct(1) // TODO: detect for real
     encoder.onMesg(fileIdMesg)
   }
 
