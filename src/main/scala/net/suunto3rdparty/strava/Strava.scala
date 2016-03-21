@@ -11,7 +11,7 @@ import org.apache.http.entity.mime.MultipartEntityBuilder
 
 import scala.util.parsing.json.JSON
 
-case class StravaAPIParams(appId: Int, clientSecret: String, code: String)
+case class StravaAPIParams(appId: Int, clientSecret: String, code: Option[String])
 
 object StravaAPI {
   val localTest = false
@@ -44,7 +44,7 @@ object StravaAPI {
   }
 }
 
-class StravaAPI(appId: Int, clientSecret: String, code: String) {
+class StravaAPI(appId: Int, clientSecret: String, code: Option[String]) {
 
   import StravaAPI._
 
@@ -53,28 +53,30 @@ class StravaAPI(appId: Int, clientSecret: String, code: String) {
 
   lazy val authString: Option[String] = if (localTest) Some("Bearer xxxxx")
   else {
-    val request = Request.Post(buildURI("oauth/token"))
-      .bodyForm(
-        Form.form()
-          .add("client_id", appId.toString)
-          .add("client_secret", clientSecret)
-          .add("code", code).build()
-      )
+    code.map { code =>
+      val request = Request.Post(buildURI("oauth/token"))
+        .bodyForm(
+          Form.form()
+            .add("client_id", appId.toString)
+            .add("client_secret", clientSecret)
+            .add("code", code).build()
+        )
 
-    val result = request.execute().returnContent()
+      val result = request.execute().returnContent()
 
-    val resultJson = JSON.parseFull(result.asString())
+      val resultJson = JSON.parseFull(result.asString())
 
-    Option(resultJson).flatMap {
-      case M(map) =>
-        map.get("access_token") match {
-          case S(accessToken) =>
-            Some("Bearer " + accessToken)
-          case _ =>
-            None
-        }
-      case _ => None
-    }
+      Option(resultJson).flatMap {
+        case M(map) =>
+          map.get("access_token") match {
+            case S(accessToken) =>
+              Some("Bearer " + accessToken)
+            case _ =>
+              None
+          }
+        case _ => None
+      }
+    }.getOrElse(None)
   }
 
   def athlete: Option[String] = {
@@ -158,8 +160,6 @@ object StravaAPIThisApp {
     val code = StravaAuth(appId,callbackPort, callbackPath, "view_private,write")
 
     // now wait until the auth is done
-
-    val home = new File(Util.getSuuntoHome, "Moveslink")
 
     val clientSecret = "70c838c9c54b46aaaa730d7071c3364e480d832c"
     StravaAPIParams(appId, clientSecret, code)
