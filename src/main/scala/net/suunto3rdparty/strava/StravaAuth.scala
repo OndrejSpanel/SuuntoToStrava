@@ -14,10 +14,6 @@ import scala.xml.Elem
 
 object StravaAuth {
 
-  import java.util.concurrent.ThreadPoolExecutor
-  import java.util.concurrent.TimeUnit
-
-  class MyThreadPoolExecutor extends ThreadPoolExecutor(1, 2, 1, TimeUnit.SECONDS, new LinkedBlockingQueue[Runnable]())
 
   val authResult = Promise[String]()
   case class ServerShutdown(server: HttpServer, executor: ExecutorService)
