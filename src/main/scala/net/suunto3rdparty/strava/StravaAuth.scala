@@ -109,7 +109,7 @@ object StravaAuth {
     server = Some(startHttpServer(callbackPort, callbackPath))
 
     val callbackUrl = s"http://localhost:$callbackPort/$callbackPath"
-    val forcePrompt = true
+    val forcePrompt = false // useful for debugging / troubleshooting
     val forceStr = if (forcePrompt) "&approval_prompt=force" else ""
     val url = s"https://www.strava.com/oauth/authorize?client_id=$appId&scope=$access&response_type=code&redirect_uri=$callbackUrl$forceStr"
     try {
