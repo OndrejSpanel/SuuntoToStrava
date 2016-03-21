@@ -2,6 +2,7 @@ package net.suunto3rdparty
 
 import moveslink.MovesLinkUploader
 import moveslink2.MovesLink2Uploader
+import strava.StravaAuth
 import org.apache.log4j.Logger
 
 object Main extends App {
@@ -21,5 +22,6 @@ object Main extends App {
   log.info("Reading MovesLink ...")
   mlf.uploadXMLFiles(alreadyUploaded, index)
   log.info("Upload MovesLink done.")
+  StravaAuth.stop()
 
 }

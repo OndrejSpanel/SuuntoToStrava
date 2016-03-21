@@ -3,6 +3,7 @@ package net.suunto3rdparty.strava
 import java.awt.Desktop
 import java.io.IOException
 import java.net.{InetSocketAddress, URL}
+import java.util.concurrent._
 
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 
@@ -11,7 +12,14 @@ import scala.concurrent.{Await, Promise}
 
 object StravaAuth {
 
+  import java.util.concurrent.ThreadPoolExecutor
+  import java.util.concurrent.TimeUnit
+
+  class MyThreadPoolExecutor extends ThreadPoolExecutor(1, 2, 1, TimeUnit.SECONDS, new LinkedBlockingQueue[Runnable]())
+
   val authResult = Promise[String]()
+  case class ServerShutdown(server: HttpServer, executor: ExecutorService, latch: CountDownLatch)
+  var server: Option[ServerShutdown] = None
 
   object HttpHandler extends HttpHandler {
 
@@ -33,7 +41,10 @@ object StravaAuth {
           <body>
             <h1>Suunto To Strava Authenticated</h1>
             <p>Suunto To Strava automated upload application authenticated to Strava</p>
-            <p>Proceed to <a href="https://www.strava.com">Strava</a></p>
+            <p>Proceed to:<br/>
+              <a href="https://www.strava.com">Strava</a><br/>
+              <a href="https://www.strava.com/athlete/training">My Activities</a>
+            </p>
           </body>
         </html>
 
@@ -43,19 +54,26 @@ object StravaAuth {
       val os = t.getResponseBody
       os.write(response.getBytes)
       os.close()
+      server.foreach(s => s.latch.countDown())
+      //server.foreach(_.stop(5))
     }
   }
 
   // http://stackoverflow.com/a/3732328/16673
   def startHttpServer(callbackPort: Int, callbackPath: String) = {
+    val ex = Executors.newSingleThreadExecutor()
+    val c = new CountDownLatch(1)
+
     val server = HttpServer.create(new InetSocketAddress(8080), 0)
     server.createContext(s"/$callbackPath", HttpHandler)
-    server.setExecutor(null) // creates a default executor
+
+    server.setExecutor(ex) // creates a default executor
     server.start()
+    ServerShutdown(server, ex, c)
   }
 
   def apply(appId: Int, callbackPort: Int, callbackPath: String, access: String): String = {
-    startHttpServer(callbackPort, callbackPath)
+    server = Some(startHttpServer(callbackPort, callbackPath))
 
     val callbackUrl = s"http://localhost:$callbackPort/$callbackPath"
     val url = s"https://www.strava.com/oauth/authorize?client_id=$appId&scope=$access&response_type=code&redirect_uri=$callbackUrl"
@@ -67,6 +85,17 @@ object StravaAuth {
     }
 
     Await.result(authResult.future, Duration.Inf)
+
+
+  }
+
+  def stop(): Unit = {
+    server.foreach { s =>
+      s.latch.await()
+      s.executor.shutdown()
+      s.executor.awaitTermination(1, TimeUnit.MINUTES); // wait until all tasks complete (i. e. all responses are sent)
+      s.server.stop(0)
+    }
   }
 
 }
