@@ -68,12 +68,12 @@ object StravaAuth {
       if (reportResult.nonEmpty) {
         val response =
           <div>
-          <h3>{reportResult}</h3>
-          <p>Proceed to:
-            <br/>
-            <a href="https://www.strava.com">Strava</a> <br/>
-            <a href="https://www.strava.com/athlete/training">My Activities</a>
-          </p>
+            <h3>{reportResult}</h3>
+            <p>Proceed to:
+              <br/>
+              <a href="https://www.strava.com">Strava</a> <br/>
+              <a href="https://www.strava.com/athlete/training">My Activities</a>
+            </p>
           </div>
 
         sendResponse(200, httpExchange, response)
@@ -110,57 +110,56 @@ object StravaAuth {
 
     private def respondAuthSuccess(t: HttpExchange): Unit = {
       val scriptText =
-      //language=<JavaScript>
+      //language=JavaScript
 s"""
-function updateStatus(){
+function updateStatus() {
   setTimeout(function(){
     var xmlhttp;
-    if (window.XMLHttpRequest) { /* code for IE7+, Firefox, Chrome, Opera, Safari */
+    if (window.XMLHttpRequest) { // code for IE7+, Firefox, Chrome, Opera, Safari
       xmlhttp=new XMLHttpRequest();
     }
-    else { /* code for IE6, IE5 */
+    else { // code for IE6, IE5
       xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
     }
-
-    /* the callback function to be callled when AJAX request comes back */
+    // the callback function to be callled when AJAX request comes back
     xmlhttp.onreadystatechange=function(){
       if (xmlhttp.readyState==4) {
-        if(xmlhttp.status==200){
+        if(xmlhttp.status>=200 && xmlhttp.status<300){
           document.getElementById("myDiv").innerHTML=xmlhttp.responseText;
-        } else if (xmlhttp.status==202){
-          document.getElementById("myDiv").innerHTML=xmlhttp.responseText;
-          updateStatus() /* schedule recursively another update */
+          if (xmlhttp.status==202){
+           updateStatus() // schedule recursively another update
+          }
         } else {
           document.getElementById("myDiv").innerHTML="<h3>Application not responding</h3>";
         }
       }
     };
-    xmlhttp.open("POST","./$statusPath",true); /* POST to prevent caching */
+    xmlhttp.open("POST","./$statusPath",true); // POST to prevent caching
     xmlhttp.setRequestHeader("Content-type","application/x-www-form-urlencoded");
     xmlhttp.send("");
   }, $pollPeriod)
 }
 """
 
-        val responseXml = <html>
-          <head>
-            <script type="text/javascript">
-              {scala.xml.Unparsed(scriptText)}
-            </script>
-          </head>
+      val responseXml = <html>
+        <head>
+          <script type="text/javascript">
+            {scala.xml.Unparsed(scriptText)}
+          </script>
+        </head>
 
-          <title>Suunto To Strava Authentication</title>
-          <body>
-            <h1>Suunto To Strava Authenticated</h1>
-            <p>Suunto To Strava automated upload application authenticated to Strava</p>
+        <title>Suunto To Strava Authentication</title>
+        <body>
+          <h1>Suunto To Strava Authenticated</h1>
+          <p>Suunto To Strava automated upload application authenticated to Strava</p>
 
-            <div id="myDiv">
-              <h3>Starting processing...</h3>
-            </div>
+          <div id="myDiv">
+            <h3>Starting processing...</h3>
+          </div>
 
-          </body>
-          <script>updateStatus()</script>
-        </html>
+        </body>
+        <script>updateStatus()</script>
+      </html>
 
       sendResponse(200, t, responseXml)
     }
