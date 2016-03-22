@@ -18,9 +18,11 @@ object StravaAuth {
   private val statusPath = "status.html"
   private val pollPeriod = 2000 // miliseconds
 
-  private val passedPattern = """/.*\?.*code=([^&\?]*).*""".r
-  private val errorPattern = """/.*\?.*error=([^&\?]*).*""".r
-  private val statePattern = """/.*\?.*state=([^&\?]*).*""".r
+  private def paramPattern(param: String) = ("/.*\\?.*" + param + "=([^&\\?]*).*").r
+
+  private val passedPattern = paramPattern("code")
+  private val errorPattern = paramPattern("error")
+  private val statePattern = paramPattern("state")
 
 
   sealed trait ServerEvent
