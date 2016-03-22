@@ -2,6 +2,7 @@ package net.suunto3rdparty
 package strava
 
 import java.io._
+import java.util.zip.GZIPOutputStream
 
 import fit.Export
 import org.apache.http.client.HttpResponseException
@@ -98,14 +99,21 @@ class StravaAPI(appId: Int, clientSecret: String, code: Option[String]) {
     uploadRawFile(moveBytes)
   }
 
-  def uploadRawFile(moveBytes: Array[Byte]): Option[Int] = {
+  def uploadRawFile(moveBytesOriginal: Array[Byte]): Option[Int] = {
+    import resource._
+
+    val baos = new ByteArrayOutputStream()
+    managed(new GZIPOutputStream(baos)).foreach(_.write(moveBytesOriginal))
+
+    val sendBytes = baos.toByteArray
+
     try {
       authString.flatMap { authString =>
-
+        // see https://strava.github.io/api/v3/uploads/ -
         val body = MultipartEntityBuilder.create()
-          .addTextBody("data_type", "fit")
+          .addTextBody("data_type", "fit.gz") // case insensitive - possible values: fit, fit.gz, tcx, tcx.gz, gpx, gpx.gz
           .addTextBody("private", "1")
-          .addBinaryBody("file", moveBytes, ContentType.APPLICATION_OCTET_STREAM, "file.fit")
+          .addBinaryBody("file", sendBytes, ContentType.APPLICATION_OCTET_STREAM, "file.fit.gz")
           .build()
 
         val request = Request.Post(buildURI("uploads"))

@@ -25,3 +25,5 @@ libraryDependencies += "org.apache.httpcomponents" % "fluent-hc" % "4.3.6"
 libraryDependencies += "org.apache.httpcomponents" % "httpmime" % "4.3.6"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.5" % "test"
+
+libraryDependencies += "com.jsuereth" %% "scala-arm" % "1.4"
