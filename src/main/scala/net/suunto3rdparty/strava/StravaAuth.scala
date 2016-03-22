@@ -116,33 +116,31 @@ object StravaAuth {
     private def respondAuthSuccess(t: HttpExchange): Unit = {
       val scriptText =
       //language=JavaScript
-s"""
-function updateStatus() {
-  setTimeout(function(){
+s"""function updateStatus() {
+  setTimeout(function () {
     var xmlhttp;
     if (window.XMLHttpRequest) { // code for IE7+, Firefox, Chrome, Opera, Safari
-      xmlhttp=new XMLHttpRequest();
-    }
-    else { // code for IE6, IE5
-      xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+      xmlhttp = new XMLHttpRequest();
+    } else { // code for IE6, IE5
+      xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
     }
     // the callback function to be callled when AJAX request comes back
-    xmlhttp.onreadystatechange=function(){
-      if (xmlhttp.readyState==4) {
-        if(xmlhttp.status>=200 && xmlhttp.status<300){
+    xmlhttp.onreadystatechange = function () {
+      if (xmlhttp.readyState == 4) {
+        if (xmlhttp.status >= 200 && xmlhttp.status < 300) {
           var response = xmlhttp.responseXML;
           var html = response.getElementsByTagName("response")[0].getElementsByTagName("html")[0]
-          document.getElementById("myDiv").innerHTML=html.innerHTML;
-          if (xmlhttp.status==202){
-           updateStatus() // schedule recursively another update
+          document.getElementById("myDiv").innerHTML = html.innerHTML;
+          if (xmlhttp.status == 202) {
+            updateStatus() // schedule recursively another update
           }
         } else {
-          document.getElementById("myDiv").innerHTML="<h3>Application not responding</h3>";
+          document.getElementById("myDiv").innerHTML = "<h3>Application not responding</h3>";
         }
       }
     };
-    xmlhttp.open("POST","./$statusPath",true); // POST to prevent caching
-    xmlhttp.setRequestHeader("Content-type","application/x-www-form-urlencoded");
+    xmlhttp.open("POST", "./$statusPath", true); // POST to prevent caching
+    xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
     xmlhttp.send("");
   }, $pollPeriod)
 }
