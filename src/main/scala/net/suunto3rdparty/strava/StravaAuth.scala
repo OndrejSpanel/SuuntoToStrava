@@ -64,17 +64,22 @@ object StravaAuth {
 
   }
   object StatusHandler extends HttpHandlerHelper {
+    val uniqueId = System.currentTimeMillis().toHexString // unique enough to distinguish web browsers
     override def handle(httpExchange: HttpExchange): Unit = {
       if (reportResult.nonEmpty) {
         val response =
-          <div>
-            <h3>{reportResult}</h3>
-            <p>Proceed to:
-              <br/>
-              <a href="https://www.strava.com">Strava</a> <br/>
-              <a href="https://www.strava.com/athlete/training">My Activities</a>
-            </p>
-          </div>
+          <response>
+            <html>
+              <h3>
+                {reportResult}
+              </h3>
+              <p>Proceed to:
+                <br/>
+                <a href="https://www.strava.com">Strava</a> <br/>
+                <a href="https://www.strava.com/athlete/training">My Activities</a>
+              </p>
+            </html>
+          </response>
 
         sendResponse(200, httpExchange, response)
         server.foreach(_.events.put(ServerDoneSent))
@@ -125,7 +130,9 @@ function updateStatus() {
     xmlhttp.onreadystatechange=function(){
       if (xmlhttp.readyState==4) {
         if(xmlhttp.status>=200 && xmlhttp.status<300){
-          document.getElementById("myDiv").innerHTML=xmlhttp.responseText;
+          var response = xmlhttp.responseXML;
+          var html = response.getElementsByTagName("response")[0].getElementsByTagName("html")[0]
+          document.getElementById("myDiv").innerHTML=html.innerHTML;
           if (xmlhttp.status==202){
            updateStatus() // schedule recursively another update
           }
