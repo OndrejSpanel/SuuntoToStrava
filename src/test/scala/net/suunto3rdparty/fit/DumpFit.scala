@@ -10,29 +10,31 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class DumpFit extends FlatSpec with Matchers {
 
-  "Decoder" should "dump a fit file" in {
-    val in = getClass.getResourceAsStream("/decodeTest.fit")
-    decodeFile(in)
-  }
+  ignore should "ignore" in {
+    "Decoder" should "dump a fit file" in {
+      val in = getClass.getResourceAsStream("/decodeTest.fit")
+      decodeFile(in)
+    }
 
-  "Decoder" should "dump extra information from a fit file" in {
-    val in = getClass.getResourceAsStream("/decodeTestExt.fit")
-    decodeFile(in, "record")
-  }
+    "Decoder" should "dump extra information from a fit file" in {
+      val in = getClass.getResourceAsStream("/decodeTestExt.fit")
+      decodeFile(in, "record")
+    }
 
-  "Decoder" should "dump device information from a Quest fit file" in {
-    val in = getClass.getResourceAsStream("/decodeTestQuest.fit")
-    decodeFile(in) //, "record")
-  }
+    "Decoder" should "dump device information from a Quest fit file" in {
+      val in = getClass.getResourceAsStream("/decodeTestQuest.fit")
+      decodeFile(in) //, "record")
+    }
 
-  "Output fit" should "contain laps" in {
-    val in = getClass.getResourceAsStream("/testoutputLaps.fit")
-    decodeFile(in, "record")
-  }
+    "Output fit" should "contain laps" in {
+      val in = getClass.getResourceAsStream("/testoutputLaps.fit")
+      decodeFile(in, "record")
+    }
 
-  "Exported fit" should "contain laps" in {
-    val in = getClass.getResourceAsStream("/exportedLaps.fit")
-    decodeFile(in, "record")
+    "Exported fit" should "contain laps" in {
+      val in = getClass.getResourceAsStream("/exportedLaps.fit")
+      decodeFile(in, "record")
+    }
   }
 
   def decodeFile(in: InputStream, ignoreMessages: String*): Unit = {

@@ -1,8 +1,24 @@
 name := "SuuntoToStrava"
 
-version := "1.0"
+version := "0.1-alpha"
 
 scalaVersion := "2.11.8"
+
+scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-target:jvm-1.8")
+
+javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
+
+val appMain = "net.suunto3rdparty.Main"
+
+mainClass in (Compile, run) := Some(appMain)
+
+mainClass in (Compile, packageBin) := Some(appMain)
+
+initialize := {
+  val _ = initialize.value
+  if (sys.props("java.specification.version") != "1.8")
+    sys.error("Java 8 is required for this project.")
+}
 
 val log4jVersion = "2.5"
 
