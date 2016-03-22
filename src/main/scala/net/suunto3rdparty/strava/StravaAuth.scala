@@ -15,7 +15,8 @@ import scala.xml.Elem
 
 object StravaAuth {
   private val callbackPath = "stravaAuth.html"
-  private val statusPath = "status.html"
+  private val statusPath = "status.xml"
+  private val donePath = "done.xml"
   private val pollPeriod = 2000 // miliseconds
 
   private def paramPattern(param: String) = ("/.*\\?.*" + param + "=([^&\\?]*).*").r
@@ -28,6 +29,7 @@ object StravaAuth {
   sealed trait ServerEvent
   object ServerStatusSent extends ServerEvent
   object ServerDoneSent extends ServerEvent
+  object ServerTimeoutSent extends ServerEvent
 
 
   private case class ServerShutdown(server: HttpServer, executor: ExecutorService, events: LinkedBlockingQueue[ServerEvent])
@@ -39,15 +41,17 @@ object StravaAuth {
       @tailrec
       def pollUntilTerminated(): Unit = {
         val event = try {
-          server.flatMap(s => Option(s.events.poll(pollPeriod * 5, TimeUnit.MILLISECONDS)))
+          server.flatMap(s => Option(s.events.poll(pollPeriod * 20, TimeUnit.MILLISECONDS)))
         } catch {
           case _: InterruptedException =>
             return
         }
-        if (event.nonEmpty && event.get != ServerDoneSent) {
-          pollUntilTerminated()
-        } else {
+        if (event.isEmpty) {
           println("Browser closed? Status not polled, timeout")
+        } else if (event.get == ServerDoneSent) {
+          println("Browser closed.")
+        } else {
+          pollUntilTerminated()
         }
       }
 
@@ -107,6 +111,19 @@ object StravaAuth {
       }
     }
   }
+  object DoneHandler extends HttpHandlerHelper {
+    override def handle(t: HttpExchange): Unit = {
+      val requestURL = t.getRequestURI.toASCIIString
+      val state = requestURL match {
+        case statePattern(s) => s
+        case _ => ""
+      }
+      if (session==state) {
+        // the session is closed, terminate the server
+        server.foreach(_.events.put(ServerDoneSent))
+      }
+    }
+  }
 
   object AuthHandler extends HttpHandlerHelper {
 
@@ -143,14 +160,25 @@ object StravaAuth {
     private def respondAuthSuccess(t: HttpExchange, state: String): Unit = {
       val scriptText =
       //language=JavaScript
-s"""function updateStatus() {
+s"""var finished = false
+
+/**
+ * @returns {XMLHttpRequest}
+ */
+function /** XMLHttpRequest */ ajax() {
+  var xmlhttp;
+  if (window.XMLHttpRequest) { // code for IE7+, Firefox, Chrome, Opera, Safari
+    xmlhttp = new XMLHttpRequest();
+  } else { // code  for IE6, IE5
+    xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+  }
+  return xmlhttp;
+}
+
+
+function updateStatus() {
   setTimeout(function () {
-    var xmlhttp;
-    if (window.XMLHttpRequest) { // code for IE7+, Firefox, Chrome, Opera, Safari
-      xmlhttp = new XMLHttpRequest();
-    } else { // code  for IE6, IE5
-      xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-    }
+    var xmlhttp = ajax()
     // the callback function to be callled when AJAX request comes back
     xmlhttp.onreadystatechange = function () {
       if (xmlhttp.readyState == 4) {
@@ -159,17 +187,34 @@ s"""function updateStatus() {
           document.getElementById("myDiv").innerHTML = response.innerHTML;
           if (xmlhttp.status == 202) {
             updateStatus() // schedule recursively another update
+          } else {
+            finished = true;
           }
         } else {
+          finished = true;
           document.getElementById("myDiv").innerHTML = "<h3>Application not responding</h3>";
         }
       }
     };
-    xmlhttp.open("POST", "./$statusPath?state=$state", true); // POST to prevent caching
-    xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    xmlhttp.send("");
+    ajaxPost(xmlhttp, "./$statusPath?state=$state", true); // POST to prevent caching
   }, $pollPeriod)
 }
+
+function closingCode(){
+  if (!finished) {
+    var xmlhttp = ajax()
+    ajaxPost(xmlhttp, "./$donePath?state=$state", false); // sync to make sure request is send before the window closes
+    return null;
+  }
+}
+
+function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** boolean */ async) {
+  xmlhttp.open("POST", request, async); // POST to prevent caching
+  xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+  xmlhttp.send("");
+
+}
+
 """
 
       val responseXml = <html>
@@ -189,7 +234,10 @@ s"""function updateStatus() {
           </div>
 
         </body>
-        <script>updateStatus()</script>
+        <script>
+          updateStatus()
+          window.onbeforeunload = closingCode;
+        </script>
       </html>
 
       sendResponse(200, t, responseXml)
@@ -244,6 +292,7 @@ s"""function updateStatus() {
     val server = HttpServer.create(new InetSocketAddress(8080), 0)
     server.createContext(s"/$callbackPath", AuthHandler)
     server.createContext(s"/$statusPath", StatusHandler)
+    server.createContext(s"/$donePath", DoneHandler)
 
     server.setExecutor(ex) // creates a default executor
     server.start()
