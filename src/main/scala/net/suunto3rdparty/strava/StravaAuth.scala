@@ -7,6 +7,7 @@ import java.util.concurrent._
 
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 
+import scala.annotation.tailrec
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Promise}
 import scala.util.Try
@@ -15,10 +16,38 @@ import scala.xml.Elem
 object StravaAuth {
   private val callbackPath = "stravaAuth.html"
   private val statusPath = "status.html"
+  private val pollPeriod = 2000 // miliseconds
 
-  private case class ServerShutdown(server: HttpServer, executor: ExecutorService, latch: CountDownLatch)
+  sealed trait ServerEvent
+  object ServerStatusSent extends ServerEvent
+  object ServerDoneSent extends ServerEvent
+
+
+  private case class ServerShutdown(server: HttpServer, executor: ExecutorService, events: LinkedBlockingQueue[ServerEvent])
   private val authResult = Promise[String]()
   private var server: Option[ServerShutdown] = None
+
+  val timeoutThread = new Thread(new Runnable {
+    override def run(): Unit = {
+      @tailrec
+      def pollUntilTerminated(): Unit = {
+        val event = try {
+          server.flatMap(s => Option(s.events.poll(pollPeriod * 5, TimeUnit.MILLISECONDS)))
+        } catch {
+          case _: InterruptedException =>
+            return
+        }
+        if (event.nonEmpty && event.get != ServerDoneSent) {
+          pollUntilTerminated()
+        } else {
+          println("Browser closed? Status not polled, timeout")
+        }
+      }
+
+      pollUntilTerminated()
+    }
+  })
+
 
   var reportProgress: String = "Processing and uploading..."
   var reportResult: String = ""
@@ -48,10 +77,11 @@ object StravaAuth {
           </div>
 
         sendResponse(200, httpExchange, response)
-        server.foreach(_.latch.countDown())
+        server.foreach(_.events.put(ServerDoneSent))
       } else {
         val response = <h3>{reportProgress}</h3>
         sendResponse(202, httpExchange, response)
+        server.foreach(_.events.put(ServerStatusSent))
       }
     }
   }
@@ -108,7 +138,7 @@ function updateStatus(){
     xmlhttp.open("POST","./$statusPath",true); /* POST to prevent caching */
     xmlhttp.setRequestHeader("Content-type","application/x-www-form-urlencoded");
     xmlhttp.send("");
-  }, 2000)
+  }, $pollPeriod)
 }
 """
 
@@ -160,7 +190,7 @@ function updateStatus(){
   // http://stackoverflow.com/a/3732328/16673
   private def startHttpServer(callbackPort: Int) = {
     val ex = Executors.newSingleThreadExecutor()
-    val latch = new CountDownLatch(1)
+    val events = new LinkedBlockingQueue[ServerEvent]()
 
     val server = HttpServer.create(new InetSocketAddress(8080), 0)
     server.createContext(s"/$callbackPath", AuthHandler)
@@ -168,7 +198,7 @@ function updateStatus(){
 
     server.setExecutor(ex) // creates a default executor
     server.start()
-    ServerShutdown(server, ex, latch)
+    ServerShutdown(server, ex, events)
   }
 
   def apply(appId: Int, callbackPort: Int, access: String): Option[String] = {
@@ -185,7 +215,11 @@ function updateStatus(){
         e.printStackTrace()
     }
 
-    Try (Await.result(authResult.future, Duration(5, TimeUnit.MINUTES))).toOption
+    val ret = Try (Await.result(authResult.future, Duration(5, TimeUnit.MINUTES))).toOption
+
+    timeoutThread.start()
+
+    ret
   }
 
   def progress(status: String): Unit = {
@@ -196,8 +230,8 @@ function updateStatus(){
     reportResult = status
     server.foreach { s =>
       // based on http://stackoverflow.com/a/36129257/16673
+      timeoutThread.join()
       // we do not need a CountDownLatch, as Await on the promise makes sure the response serving has already started
-      s.latch.await(10, TimeUnit.MINUTES)
       s.executor.shutdown()
       s.executor.awaitTermination(1, TimeUnit.MINUTES); // wait until all tasks complete (i. e. all responses are sent)
       s.server.stop(0)
