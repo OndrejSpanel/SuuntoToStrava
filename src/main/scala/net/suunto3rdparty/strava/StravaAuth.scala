@@ -25,33 +25,46 @@ object StravaAuth {
   private val errorPattern = paramPattern("error")
   private val statePattern = paramPattern("state")
 
-
   sealed trait ServerEvent
   object ServerStatusSent extends ServerEvent
   object ServerDoneSent extends ServerEvent
-  object ServerTimeoutSent extends ServerEvent
-
+  object WindowClosedSent extends ServerEvent
 
   private case class ServerShutdown(server: HttpServer, executor: ExecutorService, events: LinkedBlockingQueue[ServerEvent])
   private val authResult = Promise[String]()
   private var server: Option[ServerShutdown] = None
 
+  private var reportProgress: String = "Processing and uploading..."
+  private var reportResult: String = ""
+  private var session: String = ""
+
+
   val timeoutThread = new Thread(new Runnable {
     override def run(): Unit = {
       @tailrec
-      def pollUntilTerminated(): Unit = {
+      def pollUntilTerminated(last: Boolean = false): Unit = {
+        val timeoutDelay = pollPeriod * (if (last) 3 else 20)
         val event = try {
-          server.flatMap(s => Option(s.events.poll(pollPeriod * 20, TimeUnit.MILLISECONDS)))
+          server.flatMap(s => Option(s.events.poll(timeoutDelay, TimeUnit.MILLISECONDS)))
         } catch {
           case _: InterruptedException =>
             return
         }
-        if (event.isEmpty) {
-          println("Browser closed? Status not polled, timeout")
-        } else if (event.get == ServerDoneSent) {
-          println("Browser closed.")
-        } else {
-          pollUntilTerminated()
+        event match {
+          case None =>
+            println(s"Browser closed? Status not polled, timeout ($timeoutDelay sec)")
+            // until the app is terminated, give it a chance to reconnect
+            if (reportResult.isEmpty) {
+              println("  not finished yet, giving a chance to reconnect")
+              pollUntilTerminated(true)
+            }
+          case Some(ServerDoneSent) =>
+            println("Final status displayed.")
+          case Some(WindowClosedSent) =>
+            println("Browser window closed.")
+            pollUntilTerminated(true)
+          case Some(ServerStatusSent) => //
+            pollUntilTerminated()
         }
       }
 
@@ -59,10 +72,6 @@ object StravaAuth {
     }
   })
 
-
-  var reportProgress: String = "Processing and uploading..."
-  var reportResult: String = ""
-  var session: String = ""
 
   abstract class HttpHandlerHelper extends HttpHandler {
     protected def sendResponse(code: Int, t: HttpExchange, responseXml: Elem): Unit = {
@@ -74,93 +83,10 @@ object StravaAuth {
       os.close()
     }
 
-  }
-  object StatusHandler extends HttpHandlerHelper {
-    override def handle(httpExchange: HttpExchange): Unit = {
-      val requestURL = httpExchange.getRequestURI.toASCIIString
-      val state = requestURL match {
-        case statePattern(s) => s
-        case _ => ""
-      }
-      if (session==state) {
-        if (reportResult.nonEmpty) {
-          val response =
-            <html>
-              <h3>
-                {reportResult}
-              </h3>
-              <p>Proceed to:
-                <br/>
-                <a href="https://www.strava.com">Strava</a> <br/>
-                <a href="https://www.strava.com/athlete/training">My Activities</a>
-              </p>
-            </html>
-
-          sendResponse(200, httpExchange, response)
-          server.foreach(_.events.put(ServerDoneSent))
-        } else {
-          val response = <html><h3> {reportProgress} </h3> </html>
-          sendResponse(202, httpExchange, response)
-          server.foreach(_.events.put(ServerStatusSent))
-        }
-      } else {
-        val response = <error>Invalid session id</error>
-        sendResponse(400, httpExchange, response)
-        server.foreach(_.events.put(ServerStatusSent))
-
-      }
-    }
-  }
-  object DoneHandler extends HttpHandlerHelper {
-    override def handle(t: HttpExchange): Unit = {
-      val requestURL = t.getRequestURI.toASCIIString
-      val state = requestURL match {
-        case statePattern(s) => s
-        case _ => ""
-      }
-      if (session==state) {
-        // the session is closed, terminate the server
-        server.foreach(_.events.put(ServerDoneSent))
-      }
-    }
-  }
-
-  object AuthHandler extends HttpHandlerHelper {
-
-    def handle(t: HttpExchange): Unit = {
-      // Url expected in form: /stravaAuth.html?state=&code=xxxxxxxx
-      val requestURL = t.getRequestURI.toASCIIString
-      val state = requestURL match {
-        case statePattern(s) => s
-        case _ => ""
-      }
-      if (session == "" || session == state) {
-        requestURL match {
-          case passedPattern(code) =>
-            val state = requestURL match {
-              case statePattern(s) => s
-              case _ => ""
-            }
-            session = state
-            respondAuthSuccess(t, state)
-            if (!authResult.isCompleted) authResult.success(code)
-          case errorPattern(error) =>
-            respondAuthFailure(t, error)
-            authResult.failure(new IllegalArgumentException(s"Unexpected URL $requestURL"))
-          case _ =>
-            respondAuthFailure(t, "Unknown error")
-            authResult.failure(new IllegalArgumentException(s"Unexpected URL $requestURL"))
-        }
-      } else {
-        respondFailure(t, "Session expired")
-      }
-
-    }
-
-    private def respondAuthSuccess(t: HttpExchange, state: String): Unit = {
+    protected def respondAuthSuccess(t: HttpExchange, state: String): Unit = {
       val scriptText =
       //language=JavaScript
-s"""var finished = false
+        s"""var finished = false
 
 /**
  * @returns {XMLHttpRequest}
@@ -243,7 +169,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
       sendResponse(200, t, responseXml)
     }
 
-    private def respondFailure(t: HttpExchange, error: String): Unit = {
+    protected def respondFailure(t: HttpExchange, error: String): Unit = {
       val responseXml =
         <html>
           <title>Suunto To Strava Authentication</title>
@@ -262,7 +188,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
       sendResponse(400, t, responseXml)
     }
 
-    private def respondAuthFailure(t: HttpExchange, error: String): Unit = {
+    protected def respondAuthFailure(t: HttpExchange, error: String): Unit = {
       val responseXml =
         <html>
           <title>Suunto To Strava Authentication</title>
@@ -280,6 +206,91 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
         </html>
 
       sendResponse(400, t, responseXml)
+    }
+
+
+  }
+  object StatusHandler extends HttpHandlerHelper {
+    override def handle(httpExchange: HttpExchange): Unit = {
+      val requestURL = httpExchange.getRequestURI.toASCIIString
+      println(requestURL)
+      val state = requestURL match {
+        case statePattern(s) => s
+        case _ => ""
+      }
+      if (session==state) {
+        if (reportResult.nonEmpty) {
+          val response =
+            <html>
+              <h3>
+                {reportResult}
+              </h3>
+              <p>Proceed to:
+                <br/>
+                <a href="https://www.strava.com">Strava</a> <br/>
+                <a href="https://www.strava.com/athlete/training">My Activities</a>
+              </p>
+            </html>
+
+          sendResponse(200, httpExchange, response)
+          server.foreach(_.events.put(ServerDoneSent))
+        } else {
+          val response = <html><h3> {reportProgress} </h3> </html>
+          sendResponse(202, httpExchange, response)
+          server.foreach(_.events.put(ServerStatusSent))
+        }
+      } else {
+        val response = <error>Invalid session id</error>
+        sendResponse(400, httpExchange, response)
+        server.foreach(_.events.put(ServerStatusSent))
+
+      }
+    }
+  }
+  object DoneHandler extends HttpHandlerHelper {
+    override def handle(t: HttpExchange): Unit = {
+      val requestURL = t.getRequestURI.toASCIIString
+      println(requestURL)
+      val state = requestURL match {
+        case statePattern(s) => s
+        case _ => ""
+      }
+      if (session==state) {
+        // the session is closed, report to the server
+        server.foreach(_.events.put(WindowClosedSent))
+      }
+      respondFailure(t, "Session closed")
+    }
+  }
+
+  object AuthHandler extends HttpHandlerHelper {
+
+    def handle(t: HttpExchange): Unit = {
+      // Url expected in form: /stravaAuth.html?state=&code=xxxxxxxx
+      val requestURL = t.getRequestURI.toASCIIString
+      println(requestURL)
+      val state = requestURL match {
+        case statePattern(s) => s
+        case _ => ""
+      }
+      if (session == "" || session == state) {
+        requestURL match {
+          case passedPattern(code) =>
+            session = state
+            respondAuthSuccess(t, state)
+            if (!authResult.isCompleted) authResult.success(code)
+            else server.foreach(_.events.put(ServerStatusSent))
+          case errorPattern(error) =>
+            respondAuthFailure(t, error)
+            authResult.failure(new IllegalArgumentException(s"Unexpected URL $requestURL"))
+          case _ =>
+            respondAuthFailure(t, "Unknown error")
+            authResult.failure(new IllegalArgumentException(s"Unexpected URL $requestURL"))
+        }
+      } else {
+        respondFailure(t, "Session expired")
+      }
+
     }
 
   }
