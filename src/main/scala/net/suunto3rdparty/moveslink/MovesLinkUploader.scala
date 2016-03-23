@@ -126,11 +126,12 @@ object MovesLinkUploader {
       println(s"Uploading: ${move.toLog}")
 
       // upload only non-trivial results
+      tcx.Export(move)
+      /*
       if (!move.isAlmostEmpty(90)) {
         api.upload(move)
         uploaded += 1
       }
-      processed += 1
 
       for (filename <- move.fileName) {
         val markFile = new File(upload, "/" + filename)
@@ -140,6 +141,8 @@ object MovesLinkUploader {
           case _: IOException =>
         }
       }
+      */
+      processed += 1
 
       progress(processed, total)
     }
