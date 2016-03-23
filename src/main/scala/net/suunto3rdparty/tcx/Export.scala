@@ -89,33 +89,30 @@ object Export {
       </Trackpoint>
     }
 
-    def writeLap(lapBeg: ZonedDateTime, lapEnd: ZonedDateTime): NodeSeq = {
-      <Track>{
+    def writeLap(lapBeg: ZonedDateTime, lapEnd: ZonedDateTime): Node = {
       val lapData = combined.dropWhile(_._1 < lapBeg).takeWhile(_._1 < lapEnd)
-
-      val events = for (evGroup <- lapData) yield {
-        writeEventGroup(evGroup)
-      }
-      events.toSeq}
-      </Track>
+      <Lap StartTime={lapBeg.format(timeFormat)}>
+        <TotalTimeSeconds>{timeDifference(lapBeg, lapEnd)}</TotalTimeSeconds>
+        <Track>
+          {
+            val events = for (evGroup <- lapData) yield {
+              writeEventGroup(evGroup)
+            }
+            events.toSeq
+          }
+        </Track>
+      </Lap>
     }
 
     //noinspection MapKeys - need to keep order
     // detect laps and write them
-    val lapBoundaries = move.streams.get(StreamLap).map(_.asInstanceOf[DataStreamLap].stream.map(_._1).toSeq).getOrElse(Seq(timeBeg)) :+ timeEnd
+    val lapBoundariesAll = timeBeg +: move.streams.get(StreamLap).map(_.asInstanceOf[DataStreamLap].stream.map(_._1).toSeq).getOrElse(Seq(timeBeg)) :+ timeEnd
 
-    val lapsWithDuration = (lapBoundaries zip lapBoundaries.tail).map { case (lapBeg, lapEnd) =>
-      (lapBeg, lapEnd)
-    }
+    val lapBoundaries = lapBoundariesAll.distinct
 
-    <Id>{timeBegText}</Id> +: {
-      for ((lapBeg, lapEnd) <- lapsWithDuration) yield {
-        <Lap StartTime={lapBeg.format(timeFormat)}>
-          <TotalTimeSeconds>{timeDifference(lapBeg, lapEnd)}</TotalTimeSeconds>
-          {writeLap(lapBeg, lapEnd)}
-        </Lap>
-      }
-    }
+    val lapsWithDuration = lapBoundaries zip lapBoundaries.tail
+
+    <Id>{timeBegText}</Id> +: lapsWithDuration.map((writeLap _).tupled)
   }
 
   def toOutputStream(os: OutputStream, move: Move) {
