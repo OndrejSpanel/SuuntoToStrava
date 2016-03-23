@@ -58,27 +58,30 @@ object Export {
           NodeSeq.Empty
       }
     }
-    def writeEventGroup(evGroup: (ZonedDateTime, Seq[DataStream#Item])): Node = {
-      <Trackpoint>
-        {
-        <Time>{evGroup._1.format(timeFormat)}</Time> +:
-        evGroup._2.map(writeEvent)
-        }
-      </Trackpoint>
+    def writeEventGroup(evGroup: (ZonedDateTime, Seq[DataStream#Item])): NodeSeq = {
+      val events = <Time>{evGroup._1.format(timeFormat)}</Time> +: evGroup._2.map(writeEvent)
+      if (events.nonEmpty) {
+        <Trackpoint>
+          {events}
+        </Trackpoint>
+      } else Nil
     }
 
     def writeLap(lapBeg: ZonedDateTime, lapEnd: ZonedDateTime): Node = {
       val lapData = combined.dropWhile(_._1 < lapBeg).takeWhile(_._1 < lapEnd)
+      val distOnly = lapData.map(_._2.collect {
+        case d: Double => d
+        case HRPoint(_, d) => d
+      } ).filter(_.nonEmpty)
+      val dist = for (begDist <- distOnly.head; endDist <- distOnly.last) yield endDist - begDist
       <Lap StartTime={lapBeg.format(timeFormat)}>
-        <TotalTimeSeconds>{timeDifference(lapBeg, lapEnd)}</TotalTimeSeconds>
+        {
+        <TotalTimeSeconds>{timeDifference(lapBeg, lapEnd)}</TotalTimeSeconds> +:
+        dist.map(d => <DistanceMeters>{d}</DistanceMeters>) :+
         <Track>
-          {
-            val events = for (evGroup <- lapData) yield {
-              writeEventGroup(evGroup)
-            }
-            events.toSeq
-          }
+          {lapData.flatMap(writeEventGroup).toSeq}
         </Track>
+        }
       </Lap>
     }
 
