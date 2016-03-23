@@ -47,45 +47,23 @@ object Export {
               <LatitudeDegrees>{gps.latitude}</LatitudeDegrees>
               <LongitudeDegrees>{gps.longitude}</LongitudeDegrees>
             </Position>
-
         case hr: HRPoint =>
-          /*
-          val myMsg = new RecordMesg()
-          if (hr.hr != 0) {
-            myMsg.setTimestamp(toTimestamp(time))
-            myMsg.setHeartRate(hr.hr.toShort)
-            myMsg.setDistance(hr.dist.toFloat)
-            Some(myMsg)
-          } else None
-          */
-          NodeSeq.Empty
+          <HeartRateBpm><Value>{hr.hr}</Value></HeartRateBpm>
+          <DistanceMeters>{hr.dist}</DistanceMeters>
         case hr: Int =>
-          /*
-          val myMsg = new RecordMesg()
-          myMsg.setTimestamp(toTimestamp(time))
-          myMsg.setHeartRate(hr.toShort)
-          Some(myMsg)
-          */
-          NodeSeq.Empty
+          <HeartRateBpm><Value>{hr}</Value></HeartRateBpm>
         case dist: Double =>
-          /*
-          val myMsg = new RecordMesg()
-          myMsg.setTimestamp(toTimestamp(time))
-          myMsg.setDistance(dist.toFloat)
-          Some(myMsg)
-          */
-          NodeSeq.Empty
+          <DistanceMeters>{dist}</DistanceMeters>
         case lap: String =>
           NodeSeq.Empty
       }
     }
     def writeEventGroup(evGroup: (ZonedDateTime, Seq[DataStream#Item])): Node = {
       <Trackpoint>
-      {
-        for (ev <- evGroup._2) yield {
-          <Time>{evGroup._1.format(timeFormat)}</Time> +: {writeEvent(ev)}
+        {
+        <Time>{evGroup._1.format(timeFormat)}</Time> +:
+        evGroup._2.map(writeEvent)
         }
-      }
       </Trackpoint>
     }
 

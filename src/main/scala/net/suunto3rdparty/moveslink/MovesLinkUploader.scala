@@ -126,8 +126,7 @@ object MovesLinkUploader {
       println(s"Uploading: ${move.toLog}")
 
       // upload only non-trivial results
-      tcx.Export(move)
-      /*
+      //tcx.Export(move)
       if (!move.isAlmostEmpty(90)) {
         api.upload(move)
         uploaded += 1
@@ -141,7 +140,6 @@ object MovesLinkUploader {
           case _: IOException =>
         }
       }
-      */
       processed += 1
 
       progress(processed, total)
