@@ -51,7 +51,7 @@ object XMLParser {
     new Move(Set(fileName), header.moveHeader, hrStream)
   }
 
-  def parseHeader(headerStr: Node) = {
+  def parseHeader(headerStr: Node, deviceName: Option[String]) = {
 
     val durationPattern = Pattern.compile("(\\d+):(\\d+):(\\d+)\\.?(\\d*)")
 
@@ -80,7 +80,7 @@ object XMLParser {
       val ms = if (!matcher.group(4).isEmpty) matcher.group(4).toInt else 0
       (hour * 3600 + minute * 60 + second) * 1000 + ms
     } else 0
-    Header(MoveHeader(activityType), startTime, duration, calories, distance)
+    Header(MoveHeader(deviceName.toSet, activityType), startTime, duration, calories, distance)
   }
 
   def parseTime(timeText: String): ZonedDateTime = {
@@ -90,6 +90,11 @@ object XMLParser {
   def parse(fileName: String, xmlFile: File): Seq[Move] = {
     XMLParser.log.debug("Parsing " + xmlFile.getName)
     val document = XML.loadFile(xmlFile)
+
+    val deviceNodes = document \ "Device" \ "FullName"
+
+    val deviceName = deviceNodes.headOption.map(_.text)
+
     val moves = document \ "Moves"
 
     val moveList = moves \ "Move"
@@ -98,7 +103,7 @@ object XMLParser {
       try {
         val headerNode = (moveItem \ "Header")(0)
         val samples = (moveItem \ "Samples")(0)
-        val header = parseHeader(headerNode)
+        val header = parseHeader(headerNode, deviceName)
 
         def parseRelativeTime(timeStr: String): ZonedDateTime = {
           val relTime = LocalTime.parse(timeStr, DateTimeFormatter.ISO_LOCAL_TIME)
@@ -115,7 +120,7 @@ object XMLParser {
 
         val suuntoMove = parseSamples(fileName, header, samples)
         val moveWithLaps = if (laps.nonEmpty) {
-          suuntoMove.addStream(Set(), new DataStreamLap(SortedMap(laps.map(kv => kv.timestamp -> kv.name): _*)))
+          suuntoMove.addStream(suuntoMove, new DataStreamLap(SortedMap(laps.map(kv => kv.timestamp -> kv.name): _*)))
         } else suuntoMove
         Some(moveWithLaps)
       }

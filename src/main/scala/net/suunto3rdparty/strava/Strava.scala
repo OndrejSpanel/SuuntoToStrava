@@ -4,11 +4,11 @@ package strava
 import java.io._
 import java.util.zip.GZIPOutputStream
 
-import fit.Export
 import org.apache.http.client.HttpResponseException
 import org.apache.http.client.fluent.{Form, Request}
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.mime.MultipartEntityBuilder
+import resource._
 
 import scala.util.parsing.json.JSON
 
@@ -95,23 +95,32 @@ class StravaAPI(appId: Int, clientSecret: String, code: Option[String]) {
     * @return upload id (use to check status with uploads/:id)
     * */
   def upload(move: Move): Option[Int] = {
-    val moveBytes = Export.toBuffer(move)
-    uploadRawFile(moveBytes)
+    val fitFormat = false
+    if (fitFormat) {
+      val moveBytes = fit.Export.toBuffer(move)
+      uploadRawFileGz(moveBytes, "fit.gz")
+    } else {
+      val baos = new ByteArrayOutputStream()
+      managed(new GZIPOutputStream(baos)).foreach(tcx.Export.toOutputStream(_, move))
+      uploadRawFile(baos.toByteArray, "tcx.gz")
+    }
   }
 
-  def uploadRawFile(moveBytesOriginal: Array[Byte]): Option[Int] = {
-    import resource._
+  def uploadRawFileGz(moveBytesOriginal: Array[Byte], fileType: String): Option[Int] = {
 
     val baos = new ByteArrayOutputStream()
     managed(new GZIPOutputStream(baos)).foreach(_.write(moveBytesOriginal))
 
-    val sendBytes = baos.toByteArray
+    uploadRawFile(baos.toByteArray, fileType)
+  }
+
+  def uploadRawFile(sendBytes: Array[Byte], fileType: String): Option[Int] = {
 
     try {
       authString.flatMap { authString =>
         // see https://strava.github.io/api/v3/uploads/ -
         val body = MultipartEntityBuilder.create()
-          .addTextBody("data_type", "fit.gz") // case insensitive - possible values: fit, fit.gz, tcx, tcx.gz, gpx, gpx.gz
+          .addTextBody("data_type", fileType) // case insensitive - possible values: fit, fit.gz, tcx, tcx.gz, gpx, gpx.gz
           .addTextBody("private", "1")
           .addBinaryBody("file", sendBytes, ContentType.APPLICATION_OCTET_STREAM, "file.fit.gz")
           .build()
@@ -198,6 +207,6 @@ object StravaAccess extends App {
     ous.close()
     toUpload.close()
 
-    api.uploadRawFile(ous.toByteArray)
+    api.uploadRawFileGz(ous.toByteArray, "fit.gz")
   }
 }
