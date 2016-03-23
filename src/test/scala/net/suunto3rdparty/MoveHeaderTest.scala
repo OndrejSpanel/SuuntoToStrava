@@ -26,5 +26,11 @@ class MoveHeaderTest extends FlatSpec with Matchers {
     mergeDeviceNames(Set(quest, gps)) shouldBe Some(gps)
     mergeDeviceNames(Set(quest, foot, gps)) shouldBe Some(gps)
     mergeDeviceNames(Set(quest, gps, foot)) shouldBe Some(gps)
+    /*
+    mergeDeviceNames(Set(gps, quest)) shouldBe Some(questAndGPS)
+    mergeDeviceNames(Set(quest, gps)) shouldBe Some(questAndGPS)
+    mergeDeviceNames(Set(quest, foot, gps)) shouldBe Some(questAndFootAndGPS)
+    mergeDeviceNames(Set(quest, gps, foot)) shouldBe Some(questAndFootAndGPS)
+    */
   }
 }
