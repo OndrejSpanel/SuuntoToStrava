@@ -15,27 +15,21 @@ object MoveHeader {
 
   }
 
-  def mergeDeviceNames(dn1: String, dn2: String): String = {
-    if (dn1 == dn2) dn1
+  def mergeDeviceNames(dns: Set[String]): Option[String] = {
+    if (dns.isEmpty) None
+    else if (dns.tail.isEmpty) dns.headOption
     else {
       // prefer GPS information
-      if (dn1.contains("GPS")) dn1
-      else dn2
+      val gps = dns.find(_.contains("GPS"))
+      Some(gps.getOrElse(gps.head))
     }
   }
 }
 
-case class MoveHeader(deviceName: Option[String], moveType: MoveHeader.ActivityType = MoveHeader.ActivityType.RunningTrail) {
+case class MoveHeader(deviceNames: Set[String], moveType: MoveHeader.ActivityType = MoveHeader.ActivityType.RunningTrail) {
   import MoveHeader._
 
   def merge(header: MoveHeader): MoveHeader = {
-    val devName = (deviceName, header.deviceName) match {
-      case (Some(dn1), Some(dn2)) =>
-        Some(mergeDeviceNames(dn1, dn2))
-      case (Some(dn), None) => Some(dn)
-      case (None, Some(dn)) => Some(dn)
-      case _ => None
-    }
-    copy(deviceName = devName)
+    copy(deviceNames = deviceNames ++ header.deviceNames)
   }
 }

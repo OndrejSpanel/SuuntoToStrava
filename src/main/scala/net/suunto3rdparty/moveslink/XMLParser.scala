@@ -80,7 +80,7 @@ object XMLParser {
       val ms = if (!matcher.group(4).isEmpty) matcher.group(4).toInt else 0
       (hour * 3600 + minute * 60 + second) * 1000 + ms
     } else 0
-    Header(MoveHeader(deviceName, activityType), startTime, duration, calories, distance)
+    Header(MoveHeader(deviceName.toSet, activityType), startTime, duration, calories, distance)
   }
 
   def parseTime(timeText: String): ZonedDateTime = {

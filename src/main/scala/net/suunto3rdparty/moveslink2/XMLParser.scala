@@ -74,7 +74,7 @@ object XMLParser {
       }
       val dateTime = (header \ "DateTime")(0).text
       Header(
-        MoveHeader(deviceName, MoveHeader.ActivityType.Unknown),
+        MoveHeader(deviceName.toSet, MoveHeader.ActivityType.Unknown),
         startTime = timeToUTC(ZonedDateTime.parse(dateTime, dateFormatNoZone)),
         durationMs = ((header \ "Duration")(0).text.toDouble * 1000).toInt,
         calories = Try(Util.kiloCaloriesFromKilojoules((header \ "Energy")(0).text.toDouble)).getOrElse(0),

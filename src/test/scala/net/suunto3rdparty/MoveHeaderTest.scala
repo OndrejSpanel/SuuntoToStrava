@@ -12,13 +12,19 @@ class MoveHeaderTest extends FlatSpec with Matchers {
 
   val quest = "Suunto Quest"
   val gps = "Suunto GPS Track Pod"
+  val foot = "Suunto Foot Pod Mini"
+
   it should "merge identical names" in {
-    mergeDeviceNames(gps, gps) shouldBe gps
-    mergeDeviceNames(quest, quest) shouldBe quest
+    mergeDeviceNames(Set(gps, gps)) shouldBe Some(gps)
+    mergeDeviceNames(Set(quest, quest)) shouldBe Some(quest)
   }
 
   it should "merge different names" in {
-    mergeDeviceNames(gps, quest) shouldBe gps
-    mergeDeviceNames(quest, gps) shouldBe gps
+    val questAndGPS = "Suunto Quest + GPS Track Pod"
+    val questAndFootAndGPS = "Suunto Quest + GPS Track Pod + Foot Pod Mini"
+    mergeDeviceNames(Set(gps, quest)) shouldBe Some(gps)
+    mergeDeviceNames(Set(quest, gps)) shouldBe Some(gps)
+    mergeDeviceNames(Set(quest, foot, gps)) shouldBe Some(gps)
+    mergeDeviceNames(Set(quest, gps, foot)) shouldBe Some(gps)
   }
 }

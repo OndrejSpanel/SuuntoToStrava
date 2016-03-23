@@ -104,12 +104,13 @@ object Export {
     }
 
     def writeCreator: Option[Node] = {
-      move.header.deviceName.map { move =>
+      val deviceName = MoveHeader.mergeDeviceNames(move.header.deviceNames)
+      deviceName.map { move =>
         <Creator xsi:type="Device_t">
-              <Name>{move}</Name>
-              <UnitId>0</UnitId>
-              <ProductID>0</ProductID>
-            </Creator>
+          <Name>{move}</Name>
+          <UnitId>0</UnitId>
+          <ProductID>0</ProductID>
+        </Creator>
       }
     }
     val doc = <TrainingCenterDatabase xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">
