@@ -73,11 +73,11 @@ object Export {
         case d: Double => d
         case HRPoint(_, d) => d
       } ).filter(_.nonEmpty)
-      val dist = for (begDist <- distOnly.head; endDist <- distOnly.last) yield endDist - begDist
+      val dist = for (begDist <- distOnly.headOption; endDist <- distOnly.lastOption) yield endDist.head - begDist.head
       <Lap StartTime={lapBeg.format(timeFormat)}>
         {
         <TotalTimeSeconds>{timeDifference(lapBeg, lapEnd)}</TotalTimeSeconds> +:
-        dist.map(d => <DistanceMeters>{d}</DistanceMeters>) :+
+        dist.toSeq.map(d => <DistanceMeters>{d}</DistanceMeters>) :+
         <Track>
           {lapData.flatMap(writeEventGroup).toSeq}
         </Track>
