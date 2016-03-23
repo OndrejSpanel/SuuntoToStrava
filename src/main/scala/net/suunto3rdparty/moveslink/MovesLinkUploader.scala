@@ -171,8 +171,11 @@ object MovesLinkUploader {
 
   def pruneObsolete(strings: Set[String]) = {
     for (file <- strings) {
-      val toRemove = new File(getDataFolder, file)
-      println(s"Will remove $toRemove")
+      // I use .x during debugging as temporary notes
+      if (!file.endsWith(".x")) {
+        val toRemove = new File(getDataFolder, file)
+        toRemove.delete()
+      }
     }
   }
 
