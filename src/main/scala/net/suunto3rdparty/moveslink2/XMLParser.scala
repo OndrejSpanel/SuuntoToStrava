@@ -52,9 +52,9 @@ object XMLParser {
     XML.loadFile(xmlFile)
   }
 
-  def getSMLDocument(xmlFile: File): NodeSeq = {
+  def getSMLDocument(xmlFile: File): Node = {
     val doc = XML.loadFile(xmlFile)
-    doc \ "DeviceLog"
+    (doc \ "DeviceLog")(0)
   }
 
   def getRRArray(rrData: String): Seq[Int] = {
@@ -62,8 +62,10 @@ object XMLParser {
     for (rr <- rrArray) yield rr.toInt
   }
 
-  def parseHeader(header: Node): Try[Header] = {
+  def parseHeader(doc: Node): Try[Header] = {
+    val header = doc \ "Header"
 
+    val deviceName = (doc \ "Device" \ "Name").headOption.map(_.text)
     //val moveType = Util.getChildElementValue(header, "ActivityType").toInt
     Try {
       val distance = (header \ "Distance")(0).text.toInt
@@ -72,7 +74,7 @@ object XMLParser {
       }
       val dateTime = (header \ "DateTime")(0).text
       Header(
-        MoveHeader(MoveHeader.ActivityType.Unknown),
+        MoveHeader(deviceName, MoveHeader.ActivityType.Unknown),
         startTime = timeToUTC(ZonedDateTime.parse(dateTime, dateFormatNoZone)),
         durationMs = ((header \ "Duration")(0).text.toDouble * 1000).toInt,
         calories = Try(Util.kiloCaloriesFromKilojoules((header \ "Energy")(0).text.toDouble)).getOrElse(0),
@@ -201,30 +203,28 @@ object XMLParser {
     val gpsStream = new DataStreamGPS(SortedMap(trackPoints:_*))
 
     if (lapPoints.nonEmpty) {
+      // TODO: merge move headers as well
       val lapStream = new DataStreamLap(SortedMap(lapPoints.map(l => l.timestamp -> l.name):_*))
-      new Move(Set(fileName), MoveHeader(), gpsStream, hrDistStream, lapStream)
+      new Move(Set(fileName), header.moveHeader, gpsStream, hrDistStream, lapStream)
     } else {
-      new Move(Set(fileName), MoveHeader(), gpsStream, hrDistStream)
+      new Move(Set(fileName), header.moveHeader, gpsStream, hrDistStream)
     }
   }
 
   def parse(fileName: String, xmlFile: File): Try[Move] = {
     XMLParser.log.debug("Parsing " + xmlFile.getName)
 
-    val (doc, header) = if (xmlFile.getName.endsWith(".xml")) {
-      val d = getXMLDocument(xmlFile)
-      d -> (d \ "Header")(0)
+    val doc = if (xmlFile.getName.endsWith(".xml")) {
+      getXMLDocument(xmlFile)
     } else if (xmlFile.getName.endsWith(".sml")) {
-      val d = getSMLDocument(xmlFile)
-      val dh = d \ "Header"
-      d -> dh(0)
+      getSMLDocument(xmlFile)
     } else throw new UnsupportedOperationException(s"Unknown data format ${xmlFile.getName}")
 
     val samples = doc \ "Samples"
     val rrData = Try((doc \ "R-R" \ "Data")(0))
     val rr = rrData.map(node => getRRArray(node.text))
     val moves = for {
-      h <- parseHeader(header)
+      h <- parseHeader(doc)
     } yield {
       parseSamples(fileName, h, samples, rr.getOrElse(Seq()))
     }

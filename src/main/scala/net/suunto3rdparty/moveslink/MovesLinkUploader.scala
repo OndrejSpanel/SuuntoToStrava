@@ -90,7 +90,7 @@ object MovesLinkUploader {
             } else {
               gpsMove.takeUntil(hrdEnd)
             }
-            val merged = takeGPS.map(m => (m.streams(StreamGPS), m)).map(sm => hrdMove.addStream(sm._2.fileName, sm._1))
+            val merged = takeGPS.map(m => (m.streams(StreamGPS), m)).map(sm => hrdMove.addStream(sm._2, sm._1))
             println(s"Merged GPS ${takeGPS.map(_.toLog)} into ${hrdMove.toLog}")
 
             processTimelines(prependNonEmpty(leftGPS, lineGPS.tail), prependNonEmpty(merged, lineHRD.tail), processed)
@@ -125,19 +125,23 @@ object MovesLinkUploader {
     toUpload.foreach { move =>
       println(s"Uploading: ${move.toLog}")
 
-      // upload only non-trivial results
-      //tcx.Export(move)
-      if (!move.isAlmostEmpty(90)) {
-        api.upload(move)
-        uploaded += 1
-      }
+      val fileTest = false
+      if (fileTest) {
+        tcx.Export(move)
+      } else {
+        // upload only non-trivial results
+        if (!move.isAlmostEmpty(90)) {
+          api.upload(move)
+          uploaded += 1
+        }
 
-      for (filename <- move.fileName) {
-        val markFile = new File(upload, "/" + filename)
-        try {
-          markFile.createNewFile()
-        } catch {
-          case _: IOException =>
+        for (filename <- move.fileName) {
+          val markFile = new File(upload, "/" + filename)
+          try {
+            markFile.createNewFile()
+          } catch {
+            case _: IOException =>
+          }
         }
       }
       processed += 1
