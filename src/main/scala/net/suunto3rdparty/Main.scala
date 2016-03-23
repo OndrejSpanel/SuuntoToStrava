@@ -12,19 +12,19 @@ object Main extends App {
 
   if (api.authString.nonEmpty) {
 
-    val mlf = MovesLinkUploader
-    val ml2f = MovesLink2Uploader
-
     log.info("Reading MovesLink2 ...")
-    if (!ml2f.checkIfEnvOkay || !mlf.checkIfEnvOkay) {
+    if (!MovesLink2Uploader.checkIfEnvOkay || !MovesLinkUploader.checkIfEnvOkay) {
       throw new UnsupportedOperationException()
     }
-    val alreadyUploaded = mlf.listAlreadyUploaded()
+    val alreadyUploaded = MovesLinkUploader.listAlreadyUploaded()
+    val filesToProcess = MovesLinkUploader.listFiles ++ MovesLink2Uploader.listFiles
 
-    val index = ml2f.readXMLFiles(alreadyUploaded)
+    MovesLinkUploader.pruneObsolete(alreadyUploaded -- filesToProcess)
+
+    val index = MovesLink2Uploader.readXMLFiles(alreadyUploaded)
     log.info("Reading MovesLink2 done.")
     log.info("Reading MovesLink ...")
-    val uploaded = mlf.uploadXMLFiles(api, alreadyUploaded, index, (num, total) => StravaAuth.progress(s"Processing $num of $total files"))
+    val uploaded = MovesLinkUploader.uploadXMLFiles(api, alreadyUploaded, index, (num, total) => StravaAuth.progress(s"Processing $num of $total files"))
     log.info("Upload MovesLink done.")
     StravaAuth.stop(s"Completed, moves uploaded: $uploaded ")
   } else {

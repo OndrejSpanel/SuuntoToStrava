@@ -8,41 +8,37 @@ import org.apache.log4j.Logger
 object MovesLink2Uploader {
   private val log = Logger.getLogger(getClass)
 
-  private def getDataFolder: File = {
+  private val getDataFolder: File = {
     val folderName = "Moveslink2"
     val suuntoHome = Util.getSuuntoHome
     if (suuntoHome == null) {
-      return null
+      throw new UnsupportedOperationException("Suunto home not found")
     }
     new File(suuntoHome, folderName)
   }
 
   def checkIfEnvOkay: Boolean = {
-    val folder: File = getDataFolder
-    if (!folder.exists) {
-      MovesLink2Uploader.log.info("Cannot find MovesLink2 data folder at " + folder.getAbsolutePath)
+    if (!getDataFolder.exists) {
+      MovesLink2Uploader.log.info("Cannot find MovesLink2 data folder at " + getDataFolder.getAbsolutePath)
       return false
     }
     true
   }
 
+  def listFiles: Set[String] = getDataFolder.list.toSet.filter(_.endsWith(".sml"))
+
   def readXMLFiles(alreadyUploaded: Set[String]): Set[Move] = {
-    var index = Set[Move]()
-    val folder = getDataFolder
-    val files = folder.listFiles
-    for {
-      file <- files
-      fileName = file.getName.toLowerCase
-      if !alreadyUploaded.contains(fileName) && fileName.endsWith(".sml")
+    val indexed = for {
+      fileName <- listFiles
+      if !alreadyUploaded.contains(fileName)
     } yield {
       MovesLink2Uploader.log.info("Analyzing " + fileName)
-      val parsed = XMLParser.parse(fileName, file)
+      val parsed = XMLParser.parse(fileName, new File(getDataFolder, fileName))
       parsed.foreach { move =>
-        index += move
         println(s"GPS: ${move.toLog}")
       }
-      parsed
+      parsed.toOption
     }
-    index
+    indexed.flatten
   }
 }
