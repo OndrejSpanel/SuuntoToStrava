@@ -95,7 +95,7 @@ class StravaAPI(appId: Int, clientSecret: String, code: Option[String]) {
     * @return upload id (use to check status with uploads/:id)
     * */
   def upload(move: Move): Option[Int] = {
-    val fitFormat = false
+    val fitFormat = true
     if (fitFormat) {
       val moveBytes = fit.Export.toBuffer(move)
       uploadRawFileGz(moveBytes, "fit.gz")
