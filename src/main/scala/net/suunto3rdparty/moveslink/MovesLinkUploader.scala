@@ -148,12 +148,12 @@ object MovesLinkUploader {
     uploaded
   }
 
-  def markUploaded(move: Move) {
+  def markUploaded(move: Move): Unit = {
     for (filename <- move.fileName) {
       markUploadedFile(filename)
     }
   }
-  def markUploadedFile(filename: String): AnyVal = {
+  def markUploadedFile(filename: String): Unit = {
     try {
       val markFile = new File(uploadedFolder, "/" + filename)
       markFile.createNewFile()
@@ -169,7 +169,7 @@ object MovesLinkUploader {
     files.map(_.getName)(collection.breakOut)
   }
 
-  def pruneObsolete(strings: Set[String]) = {
+  def pruneObsolete(strings: Set[String]): Unit = {
     for (file <- strings) {
       // I use .x during debugging as temporary notes
       if (!file.endsWith(".x")) {
