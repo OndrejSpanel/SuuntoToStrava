@@ -105,22 +105,24 @@ object XMLParser {
         val samples = (moveItem \ "Samples")(0)
         val header = parseHeader(headerNode, deviceName)
 
-        def parseRelativeTime(timeStr: String): ZonedDateTime = {
+        def parseDuration(timeStr: String): Duration = {
           val relTime = LocalTime.parse(timeStr, DateTimeFormatter.ISO_LOCAL_TIME)
           val relTimeDuration = Duration.between(LocalTime.MIDNIGHT, relTime)
-          header.startTime.plus(relTimeDuration)
+          relTimeDuration
         }
 
-        val laps = for {
+        val lapDurations = for {
           mark <- moveItem \ "Marks" \ "Mark"
-          lapTime <- Try (parseRelativeTime((mark \ "Time")(0).text)).toOption
+          lapDuration <- Try (parseDuration((mark \ "Time")(0).text)).toOption
         } yield {
-          Lap("Manual", lapTime)
+          lapDuration
         }
+
+        val laps = lapDurations.scanLeft(header.startTime) { (time, duration) => time.plus(duration)}
 
         val suuntoMove = parseSamples(fileName, header, samples)
         val moveWithLaps = if (laps.nonEmpty) {
-          suuntoMove.addStream(suuntoMove, new DataStreamLap(SortedMap(laps.map(kv => kv.timestamp -> kv.name): _*)))
+          suuntoMove.addStream(suuntoMove, new DataStreamLap(SortedMap(laps.map(time => time -> "Manual"): _*)))
         } else suuntoMove
         Some(moveWithLaps)
       }
