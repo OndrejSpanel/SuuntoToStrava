@@ -10,6 +10,7 @@ import org.apache.log4j.Logger
 import scala.annotation.tailrec
 
 object MovesLinkUploader {
+  val fileTest = true
 
   private val log = Logger.getLogger(getClass)
 
@@ -129,7 +130,6 @@ object MovesLinkUploader {
     toUpload.foreach { move =>
       println(s"Uploading: ${move.toLog}")
 
-      val fileTest = false
       if (fileTest) {
         tcx.Export(move)
       } else {
@@ -155,8 +155,10 @@ object MovesLinkUploader {
   }
   def markUploadedFile(filename: String): Unit = {
     try {
-      val markFile = new File(uploadedFolder, "/" + filename)
-      markFile.createNewFile()
+      if (!fileTest) {
+        val markFile = new File(uploadedFolder, "/" + filename)
+        markFile.createNewFile()
+      }
     } catch {
       case _: IOException =>
     }
