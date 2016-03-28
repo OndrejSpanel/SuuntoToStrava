@@ -91,8 +91,8 @@ object MovesLinkUploader {
           // some overlap, handle it
           // check if the activity start is the same within a tolerance
 
-          // 4 percent means approx. 5 minutes from 2 hours (120 minutes)
-          val tolerance = (lineGPS.head.duration max lineHRD.head.duration) * 0.04f
+          // 10 percent means approx. 5 minutes from 1 hour (60 minutes)
+          val tolerance = (lineGPS.head.duration max lineHRD.head.duration) * 0.10f
 
           if (timeDifference(gpsBeg, hrdBeg).abs <= tolerance) {
             // same beginning - drive by HRD
