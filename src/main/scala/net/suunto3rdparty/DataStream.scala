@@ -25,8 +25,16 @@ object StreamLap extends StreamType {
   override def toString: String = "Lap"
 }
 
-sealed abstract class DataStream(val streamType: StreamType) {
+object DataStream {
+  def distanceIsAlmostEmpty(begDist: Double, endDist: Double, begTime: ZonedDateTime, endTime: ZonedDateTime): Boolean = {
+    val dist = endDist - begDist
+    val duration = timeDifference(begTime, endTime)
+    val maxSpeed = 0.1
+    dist < duration * maxSpeed
 
+  }
+}
+sealed abstract class DataStream(val streamType: StreamType) {
   type Item
 
   type DataMap = SortedMap[ZonedDateTime, Item]
@@ -37,6 +45,8 @@ sealed abstract class DataStream(val streamType: StreamType) {
 
   val startTime: Option[ZonedDateTime] = stream.headOption.map(_._1)
   val endTime: Option[ZonedDateTime] = stream.lastOption.map(_._1)
+
+  def isAlmostEmpty: Boolean
 
   def takeUntil(time: ZonedDateTime): (DataStream, DataStream) = {
     val (take, left) = stream.span(_._1 < time)
@@ -52,12 +62,15 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
   type Item = GPSPoint
 
   override def pickData(data: DataMap) = new DataStreamGPS(data)
+
+  override def isAlmostEmpty: Boolean = true // TODO: implement (currently we decide based on the distance)
 }
 
 class DataStreamLap(override val stream: SortedMap[ZonedDateTime, String]) extends DataStream(StreamLap) {
   type Item = String
 
   override def pickData(data: DataMap) = new DataStreamLap(data)
+  override def isAlmostEmpty = false
 }
 
 class DataStreamHRWithDist(override val stream: SortedMap[ZonedDateTime, HRPoint]) extends DataStream(StreamHRWithDist) {
@@ -71,13 +84,17 @@ class DataStreamHRWithDist(override val stream: SortedMap[ZonedDateTime, HRPoint
     }
   }
 
+  override def isAlmostEmpty = DataStream.distanceIsAlmostEmpty(stream.head._2.dist, stream.last._2.dist, stream.head._1, stream.last._1)
+
   override def pickData(data: DataMap) = new DataStreamHRWithDist(data).rebase
+
 }
 
 class DataStreamHR(override val stream: SortedMap[ZonedDateTime, Int]) extends DataStream(StreamHR) {
   type Item = Int
 
   override def pickData(data: DataMap) = new DataStreamHR(data)
+  override def isAlmostEmpty = false
 }
 
 class DataStreamDist(override val stream: SortedMap[ZonedDateTime, Double]) extends DataStream(StreamDist) {
@@ -91,6 +108,8 @@ class DataStreamDist(override val stream: SortedMap[ZonedDateTime, Double]) exte
       new DataStreamDist(stream.mapValues(_ - base))
     }
   }
+
+  override def isAlmostEmpty = DataStream.distanceIsAlmostEmpty(stream.head._2, stream.last._2, stream.head._1, stream.last._1)
 
   override def pickData(data: DataMap) = new DataStreamDist(data).rebase
 }

@@ -10,7 +10,7 @@ import org.apache.log4j.Logger
 import scala.annotation.tailrec
 
 object MovesLinkUploader {
-  val fileTest = false
+  val fileTest = true
 
   private val log = Logger.getLogger(getClass)
 

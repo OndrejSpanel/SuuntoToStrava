@@ -44,7 +44,9 @@ case class Move(fileName: Set[String], header: MoveHeader, streams: Map[StreamTy
 
 
   def isEmpty = startTime.isEmpty
-  def isAlmostEmpty(minDurationSec: Long) = !streams.exists(_._2.stream.nonEmpty) || endTime.get < startTime.get.plusSeconds(minDurationSec)
+  def isAlmostEmpty(minDurationSec: Long) = {
+    !streams.exists(_._2.stream.nonEmpty) || endTime.get < startTime.get.plusSeconds(minDurationSec) || streams.forall(x => x._2.isAlmostEmpty)
+  }
 
   def toLog: String = streams.mapValues(_.toLog).mkString(", ")
 
