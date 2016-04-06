@@ -1,6 +1,6 @@
 package net.suunto3rdparty
 
-import java.time.ZonedDateTime
+import java.time.{Duration, ZonedDateTime}
 
 import scala.collection.immutable.SortedMap
 import Util._
@@ -67,11 +67,7 @@ sealed abstract class DataStream(val streamType: StreamType) {
 
 }
 
-class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) extends DataStream(StreamGPS) {
-  type Item = GPSPoint
-
-  override def pickData(data: DataMap) = new DataStreamGPS(data)
-
+object DataStreamGPS {
   private final case class GPSRect(latMin: Double, latMax: Double, lonMin: Double, lonMax: Double) {
     def this(item: GPSPoint) = {
       this(item.latitude, item.latitude, item.longitude, item.longitude)
@@ -80,7 +76,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
     def merge(that: GPSPoint) = {
       copy(
         latMin = that.latitude min latMin, latMax = that.latitude max latMax,
-        lonMin = that.longitude min lonMin, lonMax = that.longitude max lonMax,
+        lonMin = that.longitude min lonMin, lonMax = that.longitude max lonMax
       )
     }
 
@@ -103,9 +99,18 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
   def rectAlmostEmpty(rect: GPSRect, timeBeg: ZonedDateTime, timeEnd: ZonedDateTime): Boolean = {
     val d = rect.size
     val duration = timeDifference(timeBeg, timeEnd).abs
-    val maxSpeed = 0.05
-    d < (maxSpeed * duration min 100)
+    val maxSpeed = 0.2
+    d <= (maxSpeed * duration min 100)
   }
+
+}
+
+class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) extends DataStream(StreamGPS) {
+  import DataStreamGPS._
+
+  type Item = GPSPoint
+
+  override def pickData(data: DataMap) = new DataStreamGPS(data)
 
   override def isAlmostEmpty: Boolean = {
     val lat = stream.values.map(_.latitude)
@@ -119,25 +124,32 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
   override def isNeeded = false
   // drop beginning and end with no activity
   private type ValueList = List[(ZonedDateTime, GPSPoint)]
-  private def dropAlmostEmptyPrefix(stream: ValueList): ValueList = {
-
-    @tailrec
-    def dropAlmostEmptyPrefixFrom(begTime: ZonedDateTime, rect: GPSRect, stream: ValueList): ValueList = {
-      stream match {
-        case Nil => stream
-        case head :: tail =>
-          val newRect = rect merge head._2
-          if (!rectAlmostEmpty(rect, begTime, head._1)) stream // TODO: return a bit
-          else dropAlmostEmptyPrefixFrom(begTime, newRect, tail)
-      }
-    }
-
-    dropAlmostEmptyPrefixFrom(stream.head._1, new GPSRect(stream.head._2), stream)
-  }
 
   override def dropAlmostEmpty: DataStreamGPS = {
-    val newStream = dropAlmostEmptyPrefix(dropAlmostEmptyPrefix(stream.toList).reverse).reverse
-    new DataStreamGPS(SortedMap(newStream:_*))
+    if (stream.nonEmpty) {
+      @tailrec
+      def detectEmptyPrefix(begTime: ZonedDateTime, rect: GPSRect, stream: ValueList, ret: Option[ZonedDateTime]): Option[ZonedDateTime] = {
+        stream match {
+          case Nil => ret
+          case head :: tail =>
+            val newRect = rect merge head._2
+            val newRet = if (rectAlmostEmpty(rect, begTime, head._1)) Some(head._1) else ret
+            detectEmptyPrefix(begTime, newRect, tail, newRet)
+        }
+      }
+
+      def dropEmptyPrefix(stream: ValueList, timeOffset: Duration, compare: (ZonedDateTime, ZonedDateTime) => Boolean) = {
+        val prefixTime = detectEmptyPrefix(stream.head._1, new GPSRect(stream.head._2), stream, None)
+        prefixTime.map { prefTime =>
+          val offsetPrefTime = prefTime.plus(timeOffset)
+          stream.dropWhile(t => compare(t._1, offsetPrefTime))
+        }.getOrElse(stream)
+      }
+
+      val droppedPrefix = dropEmptyPrefix(stream.toList, Duration.ofSeconds(-10), _ <= _)
+      val droppedPostfix = dropEmptyPrefix(droppedPrefix.reverse, Duration.ofSeconds(+10), _ >= _)
+      new DataStreamGPS(SortedMap(droppedPostfix: _*))
+    } else this
   }
 }
 
