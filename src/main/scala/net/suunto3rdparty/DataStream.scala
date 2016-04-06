@@ -5,6 +5,8 @@ import java.time.ZonedDateTime
 import scala.collection.immutable.SortedMap
 import Util._
 
+import scala.annotation.tailrec
+
 case class GPSPoint(latitude: Double, longitude: Double, elevation: Option[Int])
 case class HRPoint(hr: Int, dist: Double)
 
@@ -57,6 +59,9 @@ sealed abstract class DataStream(val streamType: StreamType) {
     (pickData(take), pickData(left))
   }
 
+  // drop beginning and end with no activity
+  def dropAlmostEmpty: DataStream
+
   def toLog = s"$streamType: ${startTime.map(_.toLog)} .. ${endTime.map(_.toLogShort)}"
   override def toString = toLog
 
@@ -67,27 +72,73 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
 
   override def pickData(data: DataMap) = new DataStreamGPS(data)
 
+  private final case class GPSRect(latMin: Double, latMax: Double, lonMin: Double, lonMax: Double) {
+    def this(item: GPSPoint) = {
+      this(item.latitude, item.latitude, item.longitude, item.longitude)
+    }
+
+    def merge(that: GPSPoint) = {
+      copy(
+        latMin = that.latitude min latMin, latMax = that.latitude max latMax,
+        lonMin = that.longitude min lonMin, lonMax = that.longitude max lonMax,
+      )
+    }
+
+    // diagonal size of the rectangle
+    def size: Double = {
+      val R = 6371000 // Earth radius in metres
+      val φ1 = latMin.toRadians
+      val φ2 = latMax.toRadians
+      val Δφ = φ2 - φ1
+      val Δλ = (lonMax - lonMin).toRadians
+
+      val a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
+      val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+      val d = R * c // distance in meters
+      d
+    }
+  }
+
+  def rectAlmostEmpty(rect: GPSRect, timeBeg: ZonedDateTime, timeEnd: ZonedDateTime): Boolean = {
+    val d = rect.size
+    val duration = timeDifference(timeBeg, timeEnd).abs
+    val maxSpeed = 0.05
+    d < (maxSpeed * duration min 100)
+  }
+
   override def isAlmostEmpty: Boolean = {
     val lat = stream.values.map(_.latitude)
     val lon = stream.values.map(_.longitude)
     // http://www.movable-type.co.uk/scripts/latlong.html
+    val rect = GPSRect(lat.min, lat.max, lon.min, lon.max)
 
-    val R = 6371000 // Earth radius in metres
-    val φ1 = lat.min.toRadians
-    val φ2 = lat.max.toRadians
-    val Δφ = φ2 - φ1
-    val Δλ = (lon.max - lon.min).toRadians
-
-    val a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
-    val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-
-    val d = R * c // distance in meters
-    val duration = timeDifference(stream.head._1, stream.last._1)
-    val maxSpeed = 0.05
-    d < (maxSpeed * duration min 100)
-  } // TODO: implement (currently we decide based on the distance)
+    rectAlmostEmpty(rect, stream.head._1, stream.last._1)
+  }
 
   override def isNeeded = false
+  // drop beginning and end with no activity
+  private type ValueList = List[(ZonedDateTime, GPSPoint)]
+  private def dropAlmostEmptyPrefix(stream: ValueList): ValueList = {
+
+    @tailrec
+    def dropAlmostEmptyPrefixFrom(begTime: ZonedDateTime, rect: GPSRect, stream: ValueList): ValueList = {
+      stream match {
+        case Nil => stream
+        case head :: tail =>
+          val newRect = rect merge head._2
+          if (!rectAlmostEmpty(rect, begTime, head._1)) stream // TODO: return a bit
+          else dropAlmostEmptyPrefixFrom(begTime, newRect, tail)
+      }
+    }
+
+    dropAlmostEmptyPrefixFrom(stream.head._1, new GPSRect(stream.head._2), stream)
+  }
+
+  override def dropAlmostEmpty: DataStreamGPS = {
+    val newStream = dropAlmostEmptyPrefix(dropAlmostEmptyPrefix(stream.toList).reverse).reverse
+    new DataStreamGPS(SortedMap(newStream:_*))
+  }
 }
 
 class DataStreamLap(override val stream: SortedMap[ZonedDateTime, String]) extends DataStream(StreamLap) {
@@ -96,6 +147,7 @@ class DataStreamLap(override val stream: SortedMap[ZonedDateTime, String]) exten
   override def pickData(data: DataMap) = new DataStreamLap(data)
   override def isAlmostEmpty = false
   override def isNeeded = true
+  def dropAlmostEmpty: DataStreamLap = this
 }
 
 class DataStreamHRWithDist(override val stream: SortedMap[ZonedDateTime, HRPoint]) extends DataStream(StreamHRWithDist) {
@@ -113,6 +165,7 @@ class DataStreamHRWithDist(override val stream: SortedMap[ZonedDateTime, HRPoint
   override def isNeeded = false
 
   override def pickData(data: DataMap) = new DataStreamHRWithDist(data).rebase
+  def dropAlmostEmpty: DataStreamHRWithDist = this // TODO: drop
 
 }
 
@@ -122,6 +175,7 @@ class DataStreamHR(override val stream: SortedMap[ZonedDateTime, Int]) extends D
   override def pickData(data: DataMap) = new DataStreamHR(data)
   override def isAlmostEmpty = false
   override def isNeeded = false
+  def dropAlmostEmpty: DataStreamHR = this // TODO: drop
 }
 
 class DataStreamDist(override val stream: SortedMap[ZonedDateTime, Double]) extends DataStream(StreamDist) {
@@ -140,5 +194,6 @@ class DataStreamDist(override val stream: SortedMap[ZonedDateTime, Double]) exte
   override def isNeeded = false
 
   override def pickData(data: DataMap) = new DataStreamDist(data).rebase
+  def dropAlmostEmpty: DataStreamDist = this // TODO: drop
 }
 
