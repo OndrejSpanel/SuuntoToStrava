@@ -16,8 +16,11 @@ mainClass in (Compile, packageBin) := Some(appMain)
 
 initialize := {
   val _ = initialize.value
-  if (sys.props("java.specification.version") != "1.8")
-    sys.error("Java 8 is required for this project.")
+  val specVersion = sys.props("java.specification.version")
+  if (Set("1.5", "1.6", "1.7") contains specVersion) {
+    val javaHome = sys.props("java.home")
+    sys.error(s"Java 8 or higher is required for this project, found $specVersion (from $javaHome).")
+  }
 }
 
 val log4jVersion = "2.5"
