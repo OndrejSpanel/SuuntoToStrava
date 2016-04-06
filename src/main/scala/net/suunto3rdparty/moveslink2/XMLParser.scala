@@ -200,7 +200,9 @@ object XMLParser {
       new DataStreamDist(SortedMap(timeSeq zip distanceSeq:_*))
     }
 
-    val gpsStream = new DataStreamGPS(SortedMap(trackPoints:_*))
+    val gpsStreamRaw = new DataStreamGPS(SortedMap(trackPoints:_*))
+
+    val gpsStream = gpsStreamRaw.dropAlmostEmpty
 
     if (lapPoints.nonEmpty) {
       // TODO: merge move headers as well

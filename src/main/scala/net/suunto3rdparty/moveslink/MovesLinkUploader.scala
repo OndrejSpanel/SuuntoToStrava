@@ -168,7 +168,10 @@ object MovesLinkUploader {
   def listAlreadyUploaded(): Set[String] = {
     val uploaded = new File(getDataFolder, uploadedFolderName)
     val files = uploaded.listFiles
-    files.map(_.getName)(collection.breakOut)
+    if (files == null) Set()
+    else {
+      files.map(_.getName)(collection.breakOut)
+    }
   }
 
   def pruneObsolete(strings: Set[String]): Unit = {
