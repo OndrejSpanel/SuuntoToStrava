@@ -113,12 +113,15 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
   override def pickData(data: DataMap) = new DataStreamGPS(data)
 
   override def isAlmostEmpty: Boolean = {
-    val lat = stream.values.map(_.latitude)
-    val lon = stream.values.map(_.longitude)
-    // http://www.movable-type.co.uk/scripts/latlong.html
-    val rect = GPSRect(lat.min, lat.max, lon.min, lon.max)
+    if (stream.isEmpty) true
+    else {
+      val lat = stream.values.map(_.latitude)
+      val lon = stream.values.map(_.longitude)
+      // http://www.movable-type.co.uk/scripts/latlong.html
+      val rect = GPSRect(lat.min, lat.max, lon.min, lon.max)
 
-    rectAlmostEmpty(rect, stream.head._1, stream.last._1)
+      rectAlmostEmpty(rect, stream.head._1, stream.last._1)
+    }
   }
 
   override def isNeeded = false
