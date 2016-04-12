@@ -62,7 +62,8 @@ sealed abstract class DataStream(val streamType: StreamType) {
   // drop beginning and end with no activity
   def dropAlmostEmpty: DataStream
 
-  def toLog = s"$streamType: ${startTime.map(_.toLog)} .. ${endTime.map(_.toLogShort)}"
+  def toLog = s"$streamType: ${startTime.map(_.toLog).getOrElse("")} .. ${endTime.map(_.toLogShort).getOrElse("")}"
+
   override def toString = toLog
 
 }
@@ -106,6 +107,7 @@ object DataStreamGPS {
 }
 
 class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) extends DataStream(StreamGPS) {
+
   import DataStreamGPS._
 
   type Item = GPSPoint
@@ -154,6 +156,90 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       new DataStreamGPS(SortedMap(droppedPostfix: _*))
     } else this
   }
+
+  private type DistStream  = SortedMap[ZonedDateTime, Double]
+
+  /*
+  * @param timeOffset in seconds
+  * */
+  private def errorToStream(offsetStream: DistStream): Double = {
+    // ignore non-matching parts (prefix, postfix)
+    if (offsetStream.isEmpty || stream.isEmpty) {
+      0
+    } else {
+      def maxTime(a: ZonedDateTime, b: ZonedDateTime) = if (a>b) a else b
+      def minTime(a: ZonedDateTime, b: ZonedDateTime) = if (a<b) a else b
+      val begMatch = maxTime(offsetStream.head._1, startTime.get)
+      val endMatch = minTime(offsetStream.last._1, endTime.get)
+      val distToMatch = offsetStream.dropWhile(_._1 < begMatch).takeWhile(_._1 < endMatch)
+      val gpsToMatch = stream.dropWhile(_._1 < begMatch).takeWhile(_._1 < endMatch)
+      val gpsPairs = SortedMap((gpsToMatch.keys zip (gpsToMatch.values zip gpsToMatch.values.tail)).toSeq:_*)
+      val gpsDistances = gpsPairs.mapValues { case (a, b) =>
+        val rect = new GPSRect(a).merge(b)
+        rect.size
+      }
+      val distancesSum = distToMatch.scanLeft(startTime.get -> 0.0) {
+        case ((sumTime, sum), (time, b)) => time -> (sum + b)
+      }
+      val gpsDistancesSum = gpsDistances.scanLeft(startTime.get -> 0.0) {
+        case ((sumTime, sum), (time, b)) => time -> (sum + b) // TODO: DRY
+      }
+
+      // assume d1 is finer
+      def processDistances(d1: DistStream, d2: DistStream, error: Double): Double = {
+        if (d1.isEmpty || d2.isEmpty) error
+        else {
+          if (d1.head._1 < d2.head._1) {
+            processDistances(d1.tail, d2, error)
+          } else {
+            val dError = (d1.head._2 - d2.head._2).abs
+            processDistances(d1.tail, d2.tail, error + dError)
+          }
+        }
+      }
+
+
+      // assume gpsDistances is finer
+      val error = processDistances(gpsDistancesSum, distancesSum, 0)
+      error
+    }
+
+  }
+
+  /*
+  * @param 10 sec distance stream (provided by a Quest) */
+  private def findOffset(distanceStream: DistStream) = {
+    val maxOffset = 60
+    val offsets = -maxOffset to maxOffset
+    val errors = for (offset <- offsets) yield {
+      val offsetStream = distanceStream.map { case (k,v) =>
+        k.plus(Duration.ofSeconds(offset)) -> v
+      }
+      errorToStream(offsetStream)
+    }
+    val minErrorIndex = errors.zipWithIndex.minBy(_._1)._2
+    // TODO: prefer most central best error
+    // if 0 has the same error as the best error, prefer it
+    val prefer0 = if (errors(maxOffset) == errors(minErrorIndex)) offsets(maxOffset)
+    else offsets(minErrorIndex)
+    prefer0
+  }
+
+  def adjustHrd(hrdMove: Move): Move = {
+    val hrWithDistStream = hrdMove.streams.get(StreamHRWithDist)
+    hrWithDistStream.map { dist =>
+      val distTyped = dist.asInstanceOf[DataStreamHRWithDist]
+      val distanceSums = distTyped.stream.mapValues(_.dist)
+      val distances = (distTyped.stream.values.tail zip distTyped.stream.values).map(ab => ab._1.dist - ab._2.dist)
+      val distancesWithTimes = SortedMap((distanceSums.keys zip distances).toSeq:_*)
+      val bestOffset = findOffset(distancesWithTimes)
+      val adjusted = distTyped.stream.map { case (k,v) =>
+        k.plus(Duration.ofSeconds(bestOffset)) -> v
+      }
+      hrdMove.addStream(hrdMove, new DataStreamHRWithDist(adjusted))
+    }.getOrElse(hrdMove)
+  }
+
 }
 
 class DataStreamLap(override val stream: SortedMap[ZonedDateTime, String]) extends DataStream(StreamLap) {

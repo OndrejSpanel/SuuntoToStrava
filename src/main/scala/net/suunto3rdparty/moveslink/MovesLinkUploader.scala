@@ -10,7 +10,7 @@ import org.apache.log4j.Logger
 import scala.annotation.tailrec
 
 object MovesLinkUploader {
-  val fileTest = false
+  val fileTest = true
 
   private val log = Logger.getLogger(getClass)
 
@@ -102,7 +102,10 @@ object MovesLinkUploader {
             } else {
               gpsMove.takeUntil(hrdEnd)
             }
-            val merged = takeGPS.map(m => (m.streams(StreamGPS), m)).map(sm => hrdMove.addStream(sm._2, sm._1))
+            val merged = takeGPS.map(m => (m.streams(StreamGPS).asInstanceOf[DataStreamGPS], m)).map{ sm =>
+              val hrdAdjusted = sm._1.adjustHrd(hrdMove)
+              hrdAdjusted.addStream(sm._2, sm._1)
+            }
             println(s"Merged GPS ${takeGPS.map(_.toLog)} into ${hrdMove.toLog}")
 
             processTimelines(prependNonEmpty(leftGPS, lineGPS.tail), prependNonEmpty(merged, lineHRD.tail), processed)
