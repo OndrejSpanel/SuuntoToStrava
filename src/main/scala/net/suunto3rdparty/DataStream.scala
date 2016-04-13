@@ -240,6 +240,8 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
   }
 
   def adjustHrd(hrdMove: Move): Move = {
+    hrdMove
+    /*
     val hrWithDistStream = hrdMove.streams.get(StreamHRWithDist)
     hrWithDistStream.map { dist =>
       val distTyped = dist.asInstanceOf[DataStreamHRWithDist]
@@ -250,6 +252,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       println(s"Quest offset $bestOffset from distance ${distanceSums.last._2}")
       hrdMove.timeOffset(bestOffset)
     }.getOrElse(hrdMove)
+    */
   }
 
 }

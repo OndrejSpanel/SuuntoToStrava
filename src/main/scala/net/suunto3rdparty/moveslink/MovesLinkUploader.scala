@@ -1,16 +1,18 @@
 package net.suunto3rdparty
 package moveslink
 
-import java.io.{File, IOException}
+import java.io.{File, FileInputStream, IOException}
+import java.util.Properties
 
 import strava.StravaAPI
 import Util._
 import org.apache.log4j.Logger
+import resource._
 
 import scala.annotation.tailrec
 
 object MovesLinkUploader {
-  val fileTest = true
+  val fileTest = false
 
   private val log = Logger.getLogger(getClass)
 
@@ -20,6 +22,8 @@ object MovesLinkUploader {
   }
 
   private val uploadedFolderName = "/uploadedToStrava"
+
+  private val settingsFile = "suuntoToStrava.cfg"
 
   private val uploadedFolder = new File(getDataFolder, uploadedFolderName)
 
@@ -124,7 +128,26 @@ object MovesLinkUploader {
       }
     }
 
-    val toUpload = processTimelines(timelineGPS, timelineHR, Nil).reverse
+
+    object Settings {
+      def load: Settings = {
+        val file = new File(getDataFolder, settingsFile)
+        var props: Properties = new Properties()
+        for (f <- managed(new FileInputStream(file))) {
+          props = new Properties()
+          props.load(f)
+        }
+        val offset = props.getProperty("questTimeOffset")
+        Settings(offset.toInt)
+      }
+    }
+    case class Settings(questTimeOffset: Int)
+
+    val settings = Settings.load
+
+    val timelineHRAdjusted = timelineHR.map(_.timeOffset(settings.questTimeOffset))
+
+    val toUpload = processTimelines(timelineGPS, timelineHRAdjusted, Nil).reverse
 
     var uploaded = 0
     var processed = 0
