@@ -173,6 +173,13 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       val endMatch = minTime(offsetStream.last._1, endTime.get)
       val distToMatch = offsetStream.dropWhile(_._1 < begMatch).takeWhile(_._1 < endMatch)
       val gpsToMatch = stream.dropWhile(_._1 < begMatch).takeWhile(_._1 < endMatch)
+      val gpsPairs = SortedMap((gpsToMatch.keys zip (gpsToMatch.values zip gpsToMatch.values.tail)).toSeq:_*)
+      val gpsDistances = gpsPairs.mapValues { case (a, b) =>
+        val rect = new GPSRect(a).merge(b)
+        rect.size
+      }
+
+      // smoothing
 
       // assume d1 is finer
       def processDistances(gps: SortedMap[ZonedDateTime, GPSPoint], d2: DistStream, ret: DistStream, lastGPS: GPSPoint): DistStream = {
@@ -190,7 +197,30 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       // assume gpsDistances is finer
       val gpsDistStream = processDistances(gpsToMatch, distToMatch, SortedMap(), gpsToMatch.head._2)
 
-      val differences = (gpsDistStream.values zip distToMatch.values).map(ab => ab._1 - ab._2)
+      def smoothing(input: DistStream, durationSec: Double): DistStream = {
+
+        def smoothingRecurse(done: DistStream, prev: DistStream, todo: DistStream): DistStream = {
+          if (todo.isEmpty) done
+          else if (prev.isEmpty) {
+            smoothingRecurse(done + todo.head, prev + todo.head, todo.tail)
+          } else {
+            def durationWindow(win: DistStream) = Duration.between(win.keys.head, win.keys.last).getSeconds
+            def keepWindow(win: DistStream): DistStream = if (durationWindow(win) <= durationSec) win else keepWindow(win.tail)
+            val newWindow = keepWindow(prev + todo.head)
+            val duration = durationWindow(newWindow)
+            val windowSpeed = if (duration > 0) prev.values.sum / duration else 0.0
+            val interval = Duration.between(prev.last._1, todo.head._1).getSeconds
+            val smoothDist = (windowSpeed * duration + todo.head._2) / ( duration + interval) * interval
+            smoothingRecurse(done + (todo.head._1 -> smoothDist), newWindow, todo.tail)
+          }
+        }
+
+        smoothingRecurse(SortedMap(), SortedMap(), input)
+      }
+
+      val smoothed = smoothing(gpsDistStream, 60)
+
+      val differences = (smoothed.values zip distToMatch.values).map(ab => ab._1 - ab._2)
       val error = differences.map(x => x*x).sum
 
       error
