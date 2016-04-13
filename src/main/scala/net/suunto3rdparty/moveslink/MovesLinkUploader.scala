@@ -12,7 +12,7 @@ import resource._
 import scala.annotation.tailrec
 
 object MovesLinkUploader {
-  val fileTest = false
+  val fileTest = true
 
   private val log = Logger.getLogger(getClass)
 
@@ -157,7 +157,7 @@ object MovesLinkUploader {
       println(s"Uploading: ${move.toLog}")
 
       if (fileTest) {
-        tcx.Export(move)
+        fit.Export(move)
       } else {
         // upload only non-trivial results
         if (!move.isAlmostEmpty(90)) {

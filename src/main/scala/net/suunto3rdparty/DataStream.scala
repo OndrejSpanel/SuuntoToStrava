@@ -168,45 +168,71 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
 
   private type DistStream  = SortedMap[ZonedDateTime, Double]
 
+  private def smoothing(input: DistStream, durationSec: Double): DistStream = {
+    def smoothingRecurse(done: DistStream, prev: DistStream, todo: DistStream): DistStream = {
+      if (todo.isEmpty) done
+      else if (prev.isEmpty) {
+        smoothingRecurse(done + todo.head, prev + todo.head, todo.tail)
+      } else {
+        def durationWindow(win: DistStream) = Duration.between(win.keys.head, win.keys.last).getSeconds
+        def keepWindow(win: DistStream): DistStream = if (durationWindow(win) <= durationSec) win else keepWindow(win.tail)
+        val newWindow = keepWindow(prev + todo.head)
+        val duration = durationWindow(newWindow)
+        val windowSpeed = if (duration > 0) prev.values.sum / duration else 0.0
+        val interval = Duration.between(prev.last._1, todo.head._1).getSeconds
+        val smoothDist = (windowSpeed * duration + todo.head._2) / ( duration + interval) * interval
+        smoothingRecurse(done + (todo.head._1 -> smoothDist), newWindow, todo.tail)
+      }
+    }
+
+    smoothingRecurse(SortedMap(), SortedMap(), input)
+  }
+
+  private def distStreamFromGPS(gps: SortedMap[ZonedDateTime, GPSPoint]) = {
+    val gpsPairs = SortedMap((gps.keys zip (gps.values zip gps.values.tail)).toSeq: _*)
+    val gpsDistances = gpsPairs.mapValues { case (a, b) =>
+      val rect = new GPSRect(a).merge(b)
+      rect.size
+    }
+    gpsDistances
+  }
+
+
+
+  private def distStreamToCSV(ds: DistStream): String = {
+    ds.map(kv => s"${kv._1},${kv._2}").mkString("\n")
+  }
+
+  private def rawToCSV: String = {
+    val dist = distStreamFromGPS(stream)
+    distStreamToCSV(dist)
+  }
+
+  private def smoothedToCSV: String = {
+    val dist = distStreamFromGPS(stream)
+    val smooth = smoothing(dist, 60)
+    distStreamToCSV(smooth)
+  }
+
   /*
   * @param timeOffset in seconds
   * */
   private def errorToStream(offsetStream: DistStream): Double = {
-    // ignore non-matching parts (prefix, postfix)
     if (offsetStream.isEmpty || stream.isEmpty) {
-      0
+      Double.MaxValue
     } else {
       def maxTime(a: ZonedDateTime, b: ZonedDateTime) = if (a>b) a else b
       def minTime(a: ZonedDateTime, b: ZonedDateTime) = if (a<b) a else b
       val begMatch = maxTime(offsetStream.head._1, startTime.get)
       val endMatch = minTime(offsetStream.last._1, endTime.get)
-      val distToMatch = offsetStream.dropWhile(_._1 < begMatch).takeWhile(_._1 < endMatch)
-      val gpsToMatch = stream.dropWhile(_._1 < begMatch).takeWhile(_._1 < endMatch)
+      // ignore non-matching parts (prefix, postfix)
+      def selectInner[T](data: SortedMap[ZonedDateTime, T]) = data.dropWhile(_._1 < begMatch).takeWhile(_._1 < endMatch)
+      val distToMatch = selectInner(offsetStream)
+      val gpsToMatch = selectInner(stream)
       val gpsPairs = SortedMap((gpsToMatch.keys zip (gpsToMatch.values zip gpsToMatch.values.tail)).toSeq:_*)
       val gpsDistances = gpsPairs.mapValues { case (a, b) =>
         val rect = new GPSRect(a).merge(b)
         rect.size
-      }
-
-      def smoothing(input: DistStream, durationSec: Double): DistStream = {
-
-        def smoothingRecurse(done: DistStream, prev: DistStream, todo: DistStream): DistStream = {
-          if (todo.isEmpty) done
-          else if (prev.isEmpty) {
-            smoothingRecurse(done + todo.head, prev + todo.head, todo.tail)
-          } else {
-            def durationWindow(win: DistStream) = Duration.between(win.keys.head, win.keys.last).getSeconds
-            def keepWindow(win: DistStream): DistStream = if (durationWindow(win) <= durationSec) win else keepWindow(win.tail)
-            val newWindow = keepWindow(prev + todo.head)
-            val duration = durationWindow(newWindow)
-            val windowSpeed = if (duration > 0) prev.values.sum / duration else 0.0
-            val interval = Duration.between(prev.last._1, todo.head._1).getSeconds
-            val smoothDist = (windowSpeed * duration + todo.head._2) / ( duration + interval) * interval
-            smoothingRecurse(done + (todo.head._1 -> smoothDist), newWindow, todo.tail)
-          }
-        }
-
-        smoothingRecurse(SortedMap(), SortedMap(), input)
       }
 
       val smoothed = smoothing(gpsDistances, 60)
@@ -231,28 +257,31 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       }
       errorToStream(offsetStream)
     }
-    val minErrorIndex = errors.zipWithIndex.minBy(_._1)._2
     // TODO: prefer most central best error
-    // if 0 has the same error as the best error, prefer it
-    val prefer0 = if (errors(maxOffset) == errors(minErrorIndex)) offsets(maxOffset)
-    else offsets(minErrorIndex)
-    prefer0
+    val (minError, minErrorOffset) = (errors zip offsets).minBy(_._1)
+    // compute confidence: how much is the one we have selected reliable?
+    // the ones close may have similar metrics, that is expected, but none far away should have it
+    val uncertainityForOffsets = (errors zip offsets).map { case (err,off) =>
+      (err - minError) * (off - minErrorOffset).abs
+    }
+
+    val uncertainity = uncertainityForOffsets.sum
+
+    (minErrorOffset, uncertainity)
   }
 
   def adjustHrd(hrdMove: Move): Move = {
-    hrdMove
-    /*
     val hrWithDistStream = hrdMove.streams.get(StreamHRWithDist)
     hrWithDistStream.map { dist =>
       val distTyped = dist.asInstanceOf[DataStreamHRWithDist]
       val distanceSums = distTyped.stream.mapValues(_.dist)
       val distances = (distTyped.stream.values.tail zip distTyped.stream.values).map(ab => ab._1.dist - ab._2.dist)
       val distancesWithTimes = SortedMap((distanceSums.keys zip distances).toSeq:_*)
-      val bestOffset = findOffset(distancesWithTimes)
-      println(s"Quest offset $bestOffset from distance ${distanceSums.last._2}")
-      hrdMove.timeOffset(bestOffset)
+      val (bestOffset, uncertainity) = findOffset(distancesWithTimes)
+      println(s"Quest offset $bestOffset from distance ${distanceSums.last._2}, uncertainity $uncertainity")
+      //hrdMove.timeOffset(bestOffset)
+      hrdMove
     }.getOrElse(hrdMove)
-    */
   }
 
 }
