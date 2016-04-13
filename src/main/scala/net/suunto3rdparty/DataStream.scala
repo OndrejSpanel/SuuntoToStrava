@@ -173,34 +173,24 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       val endMatch = minTime(offsetStream.last._1, endTime.get)
       val distToMatch = offsetStream.dropWhile(_._1 < begMatch).takeWhile(_._1 < endMatch)
       val gpsToMatch = stream.dropWhile(_._1 < begMatch).takeWhile(_._1 < endMatch)
-      val gpsPairs = SortedMap((gpsToMatch.keys zip (gpsToMatch.values zip gpsToMatch.values.tail)).toSeq:_*)
-      val gpsDistances = gpsPairs.mapValues { case (a, b) =>
-        val rect = new GPSRect(a).merge(b)
-        rect.size
-      }
-      val distancesSum = distToMatch.scanLeft(startTime.get -> 0.0) {
-        case ((sumTime, sum), (time, b)) => time -> (sum + b)
-      }
-      val gpsDistancesSum = gpsDistances.scanLeft(startTime.get -> 0.0) {
-        case ((sumTime, sum), (time, b)) => time -> (sum + b) // TODO: DRY
-      }
 
       // assume d1 is finer
-      def processDistances(d1: DistStream, d2: DistStream, error: Double): Double = {
-        if (d1.isEmpty || d2.isEmpty) error
+      def processDistances(gps: SortedMap[ZonedDateTime, GPSPoint], d2: DistStream, error: Double, lastGPS: GPSPoint): Double = {
+        if (gps.isEmpty || d2.isEmpty) error
         else {
-          if (d1.head._1 < d2.head._1) {
-            processDistances(d1.tail, d2, error)
+          if (gps.head._1 < d2.head._1) {
+            processDistances(gps.tail, d2, error, lastGPS)
           } else {
-            val dError = (d1.head._2 - d2.head._2).abs
-            processDistances(d1.tail, d2.tail, error + dError)
+            val gpsRect = new GPSRect(lastGPS).merge(gps.head._2)
+            val dError = (gpsRect.size - d2.head._2).abs
+            processDistances(gps.tail, d2.tail, error + dError, gps.head._2)
           }
         }
       }
 
 
       // assume gpsDistances is finer
-      val error = processDistances(gpsDistancesSum, distancesSum, 0)
+      val error = processDistances(gpsToMatch, distToMatch, 0, gpsToMatch.head._2)
       error
     }
 
