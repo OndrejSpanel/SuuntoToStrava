@@ -37,6 +37,7 @@ object DataStream {
   }
 }
 sealed abstract class DataStream(val streamType: StreamType) {
+
   type Item
 
   type DataMap = SortedMap[ZonedDateTime, Item]
@@ -57,6 +58,14 @@ sealed abstract class DataStream(val streamType: StreamType) {
   def takeUntil(time: ZonedDateTime): (DataStream, DataStream) = {
     val (take, left) = stream.span(_._1 < time)
     (pickData(take), pickData(left))
+  }
+
+  def timeOffset(bestOffset: Int): DataStream = {
+    val adjusted = stream.map{
+      case (k,v) =>
+        k.plus(Duration.ofSeconds(bestOffset)) -> v
+    }
+    pickData(adjusted)
   }
 
   // drop beginning and end with no activity
@@ -179,24 +188,6 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
         rect.size
       }
 
-      // smoothing
-
-      // assume d1 is finer
-      def processDistances(gps: SortedMap[ZonedDateTime, GPSPoint], d2: DistStream, ret: DistStream, lastGPS: GPSPoint): DistStream = {
-        if (gps.isEmpty || d2.isEmpty) ret
-        else {
-          if (gps.head._1 < d2.head._1) {
-            processDistances(gps.tail, d2, ret, lastGPS)
-          } else {
-            val gpsRect = new GPSRect(lastGPS).merge(gps.head._2)
-            processDistances(gps.tail, d2.tail, ret + (gps.head._1 -> gpsRect.size), gps.head._2)
-          }
-        }
-      }
-
-      // assume gpsDistances is finer
-      val gpsDistStream = processDistances(gpsToMatch, distToMatch, SortedMap(), gpsToMatch.head._2)
-
       def smoothing(input: DistStream, durationSec: Double): DistStream = {
 
         def smoothingRecurse(done: DistStream, prev: DistStream, todo: DistStream): DistStream = {
@@ -218,10 +209,11 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
         smoothingRecurse(SortedMap(), SortedMap(), input)
       }
 
-      val smoothed = smoothing(gpsDistStream, 60)
+      val smoothed = smoothing(gpsDistances, 60)
 
       val differences = (smoothed.values zip distToMatch.values).map(ab => ab._1 - ab._2)
-      val error = differences.map(x => x*x).sum
+      // divide by size, because we do not want to prefer offsets with many skipped samples
+      val error = differences.map(x => x*x).sum / differences.size
 
       error
     }
@@ -231,7 +223,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
   /*
   * @param 10 sec distance stream (provided by a Quest) */
   private def findOffset(distanceStream: DistStream) = {
-    val maxOffset = 60
+    val maxOffset = 120
     val offsets = -maxOffset to maxOffset
     val errors = for (offset <- offsets) yield {
       val offsetStream = distanceStream.map { case (k,v) =>
@@ -255,10 +247,8 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       val distances = (distTyped.stream.values.tail zip distTyped.stream.values).map(ab => ab._1.dist - ab._2.dist)
       val distancesWithTimes = SortedMap((distanceSums.keys zip distances).toSeq:_*)
       val bestOffset = findOffset(distancesWithTimes)
-      val adjusted = distTyped.stream.map { case (k,v) =>
-        k.plus(Duration.ofSeconds(bestOffset)) -> v
-      }
-      hrdMove.addStream(hrdMove, new DataStreamHRWithDist(adjusted))
+      println(s"Quest offset $bestOffset from distance ${distanceSums.last._2}")
+      hrdMove.timeOffset(bestOffset)
     }.getOrElse(hrdMove)
   }
 

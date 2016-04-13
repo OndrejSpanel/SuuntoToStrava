@@ -24,6 +24,9 @@ object Move {
 }
 
 case class Move(fileName: Set[String], header: MoveHeader, streams: Map[StreamType, DataStream]) {
+  def timeOffset(bestOffset: Int): Move = {
+    copy(streams = streams.mapValues(_.timeOffset(bestOffset)))
+  }
 
   def this(fileName: Set[String], header: MoveHeader, streamSeq: DataStream*) = {
     this(fileName, header, streamSeq.map(s => s.streamType -> s).toMap)
