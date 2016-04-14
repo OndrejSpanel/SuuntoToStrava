@@ -168,6 +168,8 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
 
   private type DistStream  = SortedMap[ZonedDateTime, Double]
 
+  private val smoothingInterval = 60
+
   private def smoothSpeed(input: DistStream, durationSec: Double): DistStream = {
     def smoothingRecurse(done: DistStream, prev: DistStream, todo: DistStream): DistStream = {
       if (todo.isEmpty) done
@@ -210,7 +212,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
 
   private def smoothedToCSV: String = {
     val dist = distStreamFromGPS(stream)
-    val smooth = smoothSpeed(dist, 60)
+    val smooth = smoothSpeed(dist, smoothingInterval)
     distStreamToCSV(smooth)
   }
 
@@ -235,7 +237,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       val speedToMatch = (distToMatch zip distToMatch.tail).map {
         case ((aTime, aDist), (bTime, bDist)) => aTime -> aDist / Duration.between(aTime, bTime).getSeconds
       }
-      val smoothedSpeed = smoothSpeed(gpsDistances, 60)
+      val smoothedSpeed = smoothSpeed(gpsDistances, smoothingInterval)
 
       def compareSpeedHistory(fineSpeed: DistStream, coarseSpeed: DistStream, error: Double): Double = {
         //
@@ -243,8 +245,9 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
         else {
           if (fineSpeed.head._1 < coarseSpeed.head._1) compareSpeedHistory(fineSpeed.tail, coarseSpeed, error)
           else {
-            val itemError = (fineSpeed.head._2 - coarseSpeed.head._2).abs
-            compareSpeedHistory(fineSpeed.tail, coarseSpeed.tail, error + itemError)
+            def square(x: Double) = x * x
+            val itemError = square(fineSpeed.head._2 - coarseSpeed.head._2)
+            compareSpeedHistory(fineSpeed.tail, coarseSpeed.tail, error + itemError * itemError)
           }
         }
       }
