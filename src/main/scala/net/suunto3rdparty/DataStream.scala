@@ -244,6 +244,13 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
     gpsDistances
   }
 
+  private def computeSpeedStream: DistStream = {
+
+    val gpsDistances = distStreamFromGPS(stream)
+
+    val smoothedSpeed = smoothSpeed(gpsDistances, smoothingInterval)
+    smoothedSpeed
+  }
 
 
   private def distStreamToCSV(ds: DistStream): String = {
@@ -264,8 +271,8 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
   /*
   * @param timeOffset in seconds
   * */
-  private def errorToStream(offsetStream: DistStream): Double = {
-    if (offsetStream.isEmpty || stream.isEmpty) {
+  private def errorToStream(offsetStream: DistStream, speedStream: DistStream): Double = {
+    if (offsetStream.isEmpty || speedStream.isEmpty) {
       Double.MaxValue
     } else {
       // TODO: optimize: move speed smoothing out of this function
@@ -276,14 +283,11 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       // ignore non-matching parts (prefix, postfix)
       def selectInner[T](data: SortedMap[ZonedDateTime, T]) = data.dropWhile(_._1 < begMatch).takeWhile(_._1 < endMatch)
       val distToMatch = selectInner(offsetStream)
-      val gpsToMatch = selectInner(stream)
-
-      val gpsDistances = distStreamFromGPS(gpsToMatch)
 
       val speedToMatch = (distToMatch zip distToMatch.tail).map {
         case ((aTime, aDist), (bTime, bDist)) => aTime -> aDist / Duration.between(aTime, bTime).getSeconds
       }
-      val smoothedSpeed = smoothSpeed(gpsDistances, smoothingInterval)
+      val smoothedSpeed = selectInner(speedStream)
 
       def compareSpeedHistory(fineSpeed: DistStream, coarseSpeed: DistStream, error: Double): Double = {
         //
@@ -310,11 +314,12 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
   private def findOffset(distanceStream: DistStream) = {
     val maxOffset = 60
     val offsets = -maxOffset to maxOffset
+    val speedStream = computeSpeedStream
     val errors = for (offset <- offsets) yield {
       val offsetStream = distanceStream.map { case (k,v) =>
         k.plus(Duration.ofSeconds(offset)) -> v
       }
-      errorToStream(offsetStream)
+      errorToStream(offsetStream, speedStream)
     }
     // TODO: prefer most central best error
     val (minError, minErrorOffset) = (errors zip offsets).minBy(_._1)
