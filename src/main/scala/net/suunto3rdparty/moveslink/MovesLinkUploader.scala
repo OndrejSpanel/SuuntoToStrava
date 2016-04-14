@@ -101,7 +101,8 @@ object MovesLinkUploader {
           if (timeDifference(gpsBeg, hrdBeg).abs <= tolerance) {
             // same beginning - drive by HRD
             // use from GPS only as needed by HRD
-            val (takeGPS, leftGPS) = if (timeDifference(gpsEnd, hrdEnd).abs <= tolerance) {
+            // if GPS is only a bit longer than HDR, use it whole, unless there is another HDR waiting for it
+            val (takeGPS, leftGPS) = if (timeDifference(gpsEnd, hrdEnd).abs <= tolerance && lineHRD.tail.isEmpty) {
               (Some(gpsMove), None)
             } else {
               gpsMove.takeUntil(hrdEnd)
