@@ -168,6 +168,10 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
 
   private type DistStream  = SortedMap[ZonedDateTime, Double]
 
+  /**
+    * Experiments have shown smoothingInterval = 60 gives most accurate results.
+    * Perhaps the same smoothing interval is used in the Quest itself?
+    */
   private val smoothingInterval = 60
 
   /**
