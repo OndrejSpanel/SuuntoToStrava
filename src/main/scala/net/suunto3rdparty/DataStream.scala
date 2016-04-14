@@ -274,17 +274,22 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
     val (minError, minErrorOffset) = (errors zip offsets).minBy(_._1)
     // compute confidence: how much is the one we have selected reliable?
     // the ones close may have similar metrics, that is expected, but none far away should have it
-    val confidences = (errors zip offsets).map { case (err,off) =>
-      if (off == minErrorOffset) 0
-      else {
-        val close = 1 - (off - minErrorOffset).abs / (2*maxOffset).toDouble
-        (err - minError) * close
+
+
+    def confidenceForSolution(offsetCandidate: Int) = {
+      val confidences = (errors zip offsets).map { case (err, off) =>
+        if (off == offsetCandidate) 0
+        else {
+          val close = 1 - (off - offsetCandidate).abs / (2 * maxOffset).toDouble
+          (err - minError) * close
+        }
       }
+
+      val confidence = confidences.sum
+      confidence
     }
 
-    val confidence = confidences.sum
-
-    (minErrorOffset, confidence)
+    (minErrorOffset, confidenceForSolution(minErrorOffset))
   }
 
   def adjustHrd(hrdMove: Move): Move = {
