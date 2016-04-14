@@ -170,6 +170,47 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
 
   private val smoothingInterval = 60
 
+  /**
+    * Quest records sometimes miss one sample, the missing sample is added the a neighboring sample, like:
+    * 2016-04-13T09:47:01Z	4.9468178241
+    * 2016-04-13T09:47:02Z	10.5000627924
+    * 2016-04-13T09:47:04Z	5.2888359044
+    */
+  private def fixSpeed(input: DistStream): DistStream = {
+    def fixSpeedRecurse(input: DistStream, done: DistStream): DistStream = {
+      if (input.isEmpty) done
+      else {
+        if (input.tail.isEmpty) fixSpeedRecurse(input.tail, done + input.head)
+        else {
+          val item0 = input.head
+          val item1 = input.tail.head
+          val duration = Duration.between(input.head._1, input.tail.head._1).getSeconds
+          if (duration>1.5) {
+            // missing sample
+            val value0 = item0._2
+            val value1 = item1._2
+            if (value0 >= value1) {
+              // 0 large, 1 missing, 2 small
+              val fixed0 = item0.copy(_2 = value0 / 2)
+              val addMissing = fixed0.copy(_1 = item0._1.plusSeconds(1))
+              fixSpeedRecurse(input.tail, done + fixed0 + addMissing)
+            } else {
+              // 0 small, 1 missing, 2 large
+              val fixed2 = item1.copy(_2 = value0 / 2)
+              val addMissing = fixed2.copy(_1 = item0._1.plusSeconds(1))
+              fixSpeedRecurse(input.tail.tail, done + item0 + addMissing + fixed2)
+            }
+          } else {
+            fixSpeedRecurse(input.tail, done + input.head)
+          }
+
+        }
+      }
+    }
+
+    fixSpeedRecurse(input, SortedMap())
+  }
+
   private def smoothSpeed(input: DistStream, durationSec: Double): DistStream = {
     def smoothingRecurse(done: DistStream, prev: DistStream, todo: DistStream): DistStream = {
       if (todo.isEmpty) done
@@ -187,7 +228,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       }
     }
 
-    smoothingRecurse(SortedMap(), SortedMap(), input)
+    smoothingRecurse(SortedMap(), SortedMap(), fixSpeed(input))
   }
 
   private def distStreamFromGPS(gps: SortedMap[ZonedDateTime, GPSPoint]) = {
@@ -223,6 +264,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
     if (offsetStream.isEmpty || stream.isEmpty) {
       Double.MaxValue
     } else {
+      // TODO: optimize: move speed smoothing out of this function
       def maxTime(a: ZonedDateTime, b: ZonedDateTime) = if (a>b) a else b
       def minTime(a: ZonedDateTime, b: ZonedDateTime) = if (a<b) a else b
       val begMatch = maxTime(offsetStream.head._1, startTime.get)
