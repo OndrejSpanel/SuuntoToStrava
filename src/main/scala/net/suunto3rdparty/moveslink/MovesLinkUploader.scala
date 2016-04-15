@@ -12,7 +12,7 @@ import resource._
 import scala.annotation.tailrec
 
 object MovesLinkUploader {
-  val fileTest = true
+  val fileTest = false
 
   private val log = Logger.getLogger(getClass)
 
