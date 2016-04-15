@@ -189,20 +189,21 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
           val item0 = input.head
           val item1 = input.tail.head
           val duration = Duration.between(input.head._1, input.tail.head._1).getSeconds
-          if (duration>1.5) {
+          if (duration>1) {
             // missing sample
+            val missingCount = duration - 1
             val value0 = item0._2
             val value1 = item1._2
             if (value0 >= value1) {
               // 0 large, 1 missing, 2 small
-              val fixed0 = item0.copy(_2 = value0 / 2)
-              val addMissing = fixed0.copy(_1 = item0._1.plusSeconds(1))
-              fixSpeedRecurse(input.tail, done + fixed0 + addMissing)
+              val fixed0 = item0.copy(_2 = value0 / duration)
+              val addMissing = for (s <- 1 to missingCount.toInt) yield fixed0.copy(_1 = item0._1.plusSeconds(s))
+              fixSpeedRecurse(input.tail, done + fixed0 ++ addMissing)
             } else {
               // 0 small, 1 missing, 2 large
-              val fixed2 = item1.copy(_2 = value0 / 2)
-              val addMissing = fixed2.copy(_1 = item0._1.plusSeconds(1))
-              fixSpeedRecurse(input.tail.tail, done + item0 + addMissing + fixed2)
+              val fixed2 = item1.copy(_2 = value0 / duration)
+              val addMissing = for (s <- 1 to missingCount.toInt) yield fixed2.copy(_1 = item0._1.plusSeconds(s))
+              fixSpeedRecurse(input.tail.tail, done + item0 ++ addMissing + fixed2)
             }
           } else {
             fixSpeedRecurse(input.tail, done + input.head)
@@ -349,6 +350,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       val distTyped = dist.asInstanceOf[DataStreamHRWithDist]
       val distanceSums = distTyped.stream.mapValues(_.dist)
       val distances = (distTyped.stream.values.tail zip distTyped.stream.values).map(ab => ab._1.dist - ab._2.dist)
+      //val distances10x = distances.flatMap(d => List.fill(10)(d/10)).mkString("\n")
       val distancesWithTimes = SortedMap((distanceSums.keys zip distances).toSeq:_*)
       val (bestOffset, confidence) = findOffset(distancesWithTimes)
       println(s"Quest offset $bestOffset from distance ${distanceSums.last._2}, confidence $confidence")
