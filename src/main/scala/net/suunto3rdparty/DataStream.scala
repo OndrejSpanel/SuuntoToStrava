@@ -341,7 +341,10 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       confidence
     }
 
-    (minErrorOffset, confidenceForSolution(minErrorOffset))
+    // smoothing causes offset in one direction
+    //val empiricalOffset = 30 // this is for Quest smoothing 5 and GPS smoothing (smoothingInterval) 30
+    val empiricalOffset = 18 // this is for Quest smoothing 5 and GPS smoothing (smoothingInterval) 60
+    (minErrorOffset + empiricalOffset, confidenceForSolution(minErrorOffset))
   }
 
   def adjustHrd(hrdMove: Move): Move = {
@@ -350,8 +353,20 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       val distTyped = dist.asInstanceOf[DataStreamHRWithDist]
       val distanceSums = distTyped.stream.mapValues(_.dist)
       val distances = (distTyped.stream.values.tail zip distTyped.stream.values).map(ab => ab._1.dist - ab._2.dist)
-      //val distances10x = distances.flatMap(d => List.fill(10)(d/10)).mkString("\n")
-      val distancesWithTimes = SortedMap((distanceSums.keys zip distances).toSeq:_*)
+
+      def smoothDistances(todo: Iterable[Double], window: Vector[Double], done: List[Double]): List[Double] = {
+        if (todo.isEmpty) done
+        else {
+          val smoothSize = 5
+          val newWindow = if (window.size < smoothSize) window :+ todo.head
+          else window.tail :+ todo.head
+          smoothDistances(todo.tail, newWindow, done :+ newWindow.sum / newWindow.size)
+        }
+      }
+      val distancesSmooth = smoothDistances(distances, Vector(), Nil)
+
+      //val distances10x = distancesSmooth.flatMap(d => List.fill(10)(d/10)).mkString("\n")
+      val distancesWithTimes = SortedMap((distanceSums.keys zip distancesSmooth).toSeq:_*)
       val (bestOffset, confidence) = findOffset(distancesWithTimes)
       println(s"Quest offset $bestOffset from distance ${distanceSums.last._2}, confidence $confidence")
       //hrdMove.timeOffset(bestOffset)
