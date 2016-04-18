@@ -203,7 +203,6 @@ object XMLParser {
     val gpsStream = new DataStreamGPS(SortedMap(trackPoints:_*))
 
     val gpsMove = if (lapPoints.nonEmpty) {
-      // TODO: merge move headers as well
       val lapStream = new DataStreamLap(SortedMap(lapPoints.map(l => l.timestamp -> l.name):_*))
       new Move(Set(fileName), header.moveHeader, gpsStream, hrDistStream, lapStream)
     } else {
@@ -213,7 +212,7 @@ object XMLParser {
 
     val gpsDroppedEmpty = gpsStream.dropAlmostEmpty match {
       case Some((keepStart, keepEnd)) =>
-        gpsMove.span(keepStart)._2.flatMap(_.span(keepEnd)._1) // TODO: span all streams
+        gpsMove.span(keepStart)._2.flatMap(_.span(keepEnd)._1)
       case None =>
         None
     }
