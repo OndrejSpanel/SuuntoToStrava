@@ -6,7 +6,6 @@ import scala.collection.immutable.SortedMap
 import Util._
 
 import scala.annotation.tailrec
-import scala.reflect.ClassTag
 
 case class GPSPoint(latitude: Double, longitude: Double, elevation: Option[Int])
 case class HRPoint(hr: Int, dist: Double)
@@ -275,11 +274,13 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
     ds.map(kv => s"${kv._1},${kv._2}").mkString("\n")
   }
 
+  //noinspection ScalaUnusedSymbol
   private def rawToCSV: String = {
     val dist = distStreamFromGPS(stream)
     distStreamToCSV(dist)
   }
 
+  //noinspection ScalaUnusedSymbol
   private def smoothedToCSV: String = {
     val dist = distStreamFromGPS(stream)
     val smooth = smoothSpeed(dist, smoothingInterval)
