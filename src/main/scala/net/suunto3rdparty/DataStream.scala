@@ -27,6 +27,52 @@ object StreamLap extends StreamType {
   override def toString: String = "Lap"
 }
 
+object DataStreamUtils {
+  type DoubleStream  = SortedMap[ZonedDateTime, Double]
+
+  /**
+    * Quest records sometimes miss one sample, the missing sample is added the a neighboring sample, like:
+    * 2016-04-13T09:47:01Z	4.9468178241
+    * 2016-04-13T09:47:02Z	10.5000627924
+    * 2016-04-13T09:47:04Z	5.2888359044
+    */
+  def fixValue(input: DoubleStream): DoubleStream = {
+    def fixSpeedRecurse(input: DoubleStream, done: DoubleStream): DoubleStream = {
+      if (input.isEmpty) done
+      else {
+        if (input.tail.isEmpty) fixSpeedRecurse(input.tail, done + input.head)
+        else {
+          val item0 = input.head
+          val item1 = input.tail.head
+          val duration = Duration.between(input.head._1, input.tail.head._1).getSeconds
+          if (duration>1) {
+            // missing sample
+            val missingCount = duration - 1
+            val value0 = item0._2
+            val value1 = item1._2
+            if (value0 >= value1) {
+              // 0 large, 1 missing, 2 small
+              val fixed0 = item0.copy(_2 = value0 / duration)
+              val addMissing = for (s <- 1 to missingCount.toInt) yield fixed0.copy(_1 = item0._1.plusSeconds(s))
+              fixSpeedRecurse(input.tail, done + fixed0 ++ addMissing)
+            } else {
+              // 0 small, 1 missing, 2 large
+              val fixed2 = item1.copy(_2 = value0 / duration)
+              val addMissing = for (s <- 1 to missingCount.toInt) yield fixed2.copy(_1 = item0._1.plusSeconds(s))
+              fixSpeedRecurse(input.tail.tail, done + item0 ++ addMissing + fixed2)
+            }
+          } else {
+            fixSpeedRecurse(input.tail, done + input.head)
+          }
+
+        }
+      }
+    }
+
+    fixSpeedRecurse(input, SortedMap())
+  }
+}
+
 object DataStream {
   def distanceIsAlmostEmpty(begDist: Double, endDist: Double, begTime: ZonedDateTime, endTime: ZonedDateTime): Boolean = {
     val dist = endDist - begDist
@@ -74,7 +120,9 @@ sealed abstract class DataStream(val streamType: StreamType) {
 
 }
 
-object DataStreamGPS {
+object DataStreamGPS  {
+  import DataStreamUtils._
+
   private final case class GPSRect(latMin: Double, latMax: Double, lonMin: Double, lonMax: Double) {
     def this(item: GPSPoint) = {
       this(item.latitude, item.latitude, item.longitude, item.longitude)
@@ -111,7 +159,6 @@ object DataStreamGPS {
   }
 
 
-  private type DistStream  = SortedMap[ZonedDateTime, Double]
 
   /**
     * Experiments have shown smoothingInterval = 60 gives most accurate results.
@@ -119,56 +166,14 @@ object DataStreamGPS {
     */
   private val smoothingInterval = 60
 
-  /**
-    * Quest records sometimes miss one sample, the missing sample is added the a neighboring sample, like:
-    * 2016-04-13T09:47:01Z	4.9468178241
-    * 2016-04-13T09:47:02Z	10.5000627924
-    * 2016-04-13T09:47:04Z	5.2888359044
-    */
-  private def fixSpeed(input: DistStream): DistStream = {
-    def fixSpeedRecurse(input: DistStream, done: DistStream): DistStream = {
-      if (input.isEmpty) done
-      else {
-        if (input.tail.isEmpty) fixSpeedRecurse(input.tail, done + input.head)
-        else {
-          val item0 = input.head
-          val item1 = input.tail.head
-          val duration = Duration.between(input.head._1, input.tail.head._1).getSeconds
-          if (duration>1) {
-            // missing sample
-            val missingCount = duration - 1
-            val value0 = item0._2
-            val value1 = item1._2
-            if (value0 >= value1) {
-              // 0 large, 1 missing, 2 small
-              val fixed0 = item0.copy(_2 = value0 / duration)
-              val addMissing = for (s <- 1 to missingCount.toInt) yield fixed0.copy(_1 = item0._1.plusSeconds(s))
-              fixSpeedRecurse(input.tail, done + fixed0 ++ addMissing)
-            } else {
-              // 0 small, 1 missing, 2 large
-              val fixed2 = item1.copy(_2 = value0 / duration)
-              val addMissing = for (s <- 1 to missingCount.toInt) yield fixed2.copy(_1 = item0._1.plusSeconds(s))
-              fixSpeedRecurse(input.tail.tail, done + item0 ++ addMissing + fixed2)
-            }
-          } else {
-            fixSpeedRecurse(input.tail, done + input.head)
-          }
-
-        }
-      }
-    }
-
-    fixSpeedRecurse(input, SortedMap())
-  }
-
-  private def smoothSpeed(input: DistStream, durationSec: Double): DistStream = {
-    def smoothingRecurse(done: DistStream, prev: DistStream, todo: DistStream): DistStream = {
+  private def smoothSpeed(input: DoubleStream, durationSec: Double): DoubleStream = {
+    def smoothingRecurse(done: DoubleStream, prev: DoubleStream, todo: DoubleStream): DoubleStream = {
       if (todo.isEmpty) done
       else if (prev.isEmpty) {
         smoothingRecurse(done + todo.head, prev + todo.head, todo.tail)
       } else {
-        def durationWindow(win: DistStream) = Duration.between(win.keys.head, win.keys.last).getSeconds
-        def keepWindow(win: DistStream): DistStream = if (durationWindow(win) <= durationSec) win else keepWindow(win.tail)
+        def durationWindow(win: DoubleStream) = Duration.between(win.keys.head, win.keys.last).getSeconds
+        def keepWindow(win: DoubleStream): DoubleStream = if (durationWindow(win) <= durationSec) win else keepWindow(win.tail)
         val newWindow = keepWindow(prev + todo.head)
         val duration = durationWindow(newWindow)
         val windowSpeed = if (duration > 0) prev.values.sum / duration else 0.0
@@ -178,7 +183,7 @@ object DataStreamGPS {
       }
     }
 
-    smoothingRecurse(SortedMap(), SortedMap(), fixSpeed(input))
+    smoothingRecurse(SortedMap(), SortedMap(), fixValue(input))
   }
 
   private def pairToDist(ab: (GPSPoint, GPSPoint)) = {
@@ -203,6 +208,7 @@ object DataStreamGPS {
 class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) extends DataStream(StreamGPS) {
 
   import DataStreamGPS._
+  import DataStreamUtils._
 
   type Item = GPSPoint
 
@@ -273,7 +279,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
     } else None
   }
 
-  private def computeSpeedStream: DistStream = {
+  private def computeSpeedStream: DoubleStream = {
 
     val gpsDistances = distStreamFromGPS(stream)
 
@@ -282,16 +288,16 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
   }
 
 
-  private def distStreamToCSV(ds: DistStream): String = {
+  def distStreamToCSV(ds: DoubleStream): String = {
     ds.map(kv => s"${kv._1},${kv._2}").mkString("\n")
   }
 
-  private def rawToCSV: String = {
+  def rawToCSV: String = {
     val dist = distStreamFromGPS(stream)
     distStreamToCSV(dist)
   }
 
-  private def smoothedToCSV: String = {
+  def smoothedToCSV: String = {
     val dist = distStreamFromGPS(stream)
     val smooth = smoothSpeed(dist, smoothingInterval)
     distStreamToCSV(smooth)
@@ -300,7 +306,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
   /*
   * @param timeOffset in seconds
   * */
-  private def errorToStream(offsetStream: DistStream, speedStream: DistStream): Double = {
+  private def errorToStream(offsetStream: DoubleStream, speedStream: DoubleStream): Double = {
     if (offsetStream.isEmpty || speedStream.isEmpty) {
       Double.MaxValue
     } else {
@@ -318,7 +324,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       }
       val smoothedSpeed = selectInner(speedStream)
 
-      def compareSpeedHistory(fineSpeed: DistStream, coarseSpeed: DistStream, error: Double): Double = {
+      def compareSpeedHistory(fineSpeed: DoubleStream, coarseSpeed: DoubleStream, error: Double): Double = {
         //
         if (fineSpeed.isEmpty || coarseSpeed.isEmpty) error
         else {
@@ -340,7 +346,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
 
   /*
   * @param 10 sec distance stream (provided by a Quest) */
-  private def findOffset(distanceStream: DistStream) = {
+  private def findOffset(distanceStream: DoubleStream) = {
     val maxOffset = 60
     val offsets = -maxOffset to maxOffset
     val speedStream = computeSpeedStream
@@ -376,6 +382,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
   }
 
   def adjustHrd(hrdMove: Move): Move = {
+    // if there is no HR, it makes to sense to adjust - it is HR data we are interested about
     val hrWithDistStream = hrdMove.streams.get(StreamHRWithDist)
     hrWithDistStream.map { dist =>
       val distTyped = dist.asInstanceOf[DataStreamHRWithDist]
@@ -461,6 +468,37 @@ class DataStreamDist(override val stream: SortedMap[ZonedDateTime, Double]) exte
   def dropAlmostEmpty: DataStreamDist = this // TODO: drop
 
   def adjustHrd(hrdMove: Move): Move = {
+    val dstSums = stream.values
+    val dst = (dstSums.tail zip dstSums).map(ab => ab._1 - ab._2)
+
+    def smoothDistances(todo: Iterable[Double], window: Vector[Double], done: List[Double]): List[Double] = {
+      if (todo.isEmpty) done
+      else {
+        val smoothSize = 10
+        val newWindow = if (window.size < smoothSize) window :+ todo.head
+        else window.tail :+ todo.head
+        smoothDistances(todo.tail, newWindow, done :+ newWindow.sum / newWindow.size)
+      }
+    }
+
+
+    for (i <- 0 until 10) {
+
+      val dstSum = dst.drop(i).grouped(10).map(_.sum)
+      val dstSmooth = smoothDistances(dst, Vector(), Nil)
+
+      val hrWithDistStream = hrdMove.streams.get(StreamHRWithDist)
+      hrWithDistStream.map { dist =>
+        val distTyped = dist.asInstanceOf[DataStreamHRWithDist]
+        val distanceSums = distTyped.stream.mapValues(_.dist)
+        val distances = (distTyped.stream.values.tail zip distTyped.stream.values).map(ab => ab._1.dist - ab._2.dist)
+
+        (distances, dstSmooth)
+      }
+    }
+
+
+
     hrdMove
   }
 

@@ -2,6 +2,7 @@ package net.suunto3rdparty
 package moveslink
 
 import java.io.{File, FileInputStream, IOException}
+import java.time.ZonedDateTime
 import java.util.Properties
 
 import strava.StravaAPI
@@ -10,6 +11,9 @@ import org.apache.log4j.Logger
 import resource._
 
 import scala.annotation.tailrec
+import java.time.Duration
+
+import scala.collection.immutable.SortedMap
 
 object MovesLinkUploader {
   val fileTest = true
@@ -106,6 +110,42 @@ object MovesLinkUploader {
               (Some(gpsMove), None)
             } else {
               gpsMove.span(hrdEnd)
+            }
+
+            takeGPS.foreach { t =>
+              val gps = t.streams(StreamGPS).asInstanceOf[DataStreamGPS]
+
+              val distsRaw = t.streams(StreamDist).asInstanceOf[DataStreamDist].stream
+
+              import DataStreamUtils.DoubleStream
+              def each10sec(ds: DoubleStream, nextTime: ZonedDateTime, ret: DoubleStream): DoubleStream = {
+                if (ds.isEmpty) ret
+                else {
+                  if (ds.head._1 >= nextTime) each10sec(ds.tail, ds.head._1.plus(Duration.ofSeconds(10)), ret + ds.head)
+                  else each10sec(ds.tail, nextTime, ret)
+                }
+
+              }
+
+              val hrdDists = hrdMove.streams(StreamHRWithDist).asInstanceOf[DataStreamHRWithDist].stream.values.map(_.dist)
+
+              val hrdDs = (hrdDists.tail zip hrdDists).map(ab => ab._1 - ab._2)
+
+              for (i <- 0 until 10) {
+                val off = distsRaw.drop(i)
+                val drops = each10sec(off, off.head._1.plus(Duration.ofSeconds(10)), SortedMap()).values
+                val dropsDs = (drops.tail zip drops).map(ab => ab._1 - ab._2)
+                (dropsDs, hrdDs)
+
+              }
+
+              val ds = (distsRaw zip distsRaw.values.tail).map{case ((time,da),db) => time -> (db - da)}
+
+              val dsDrops = ds.filter {case (time, d) => d >0}
+
+              val dists = DataStreamUtils.fixValue(dsDrops)
+
+              val a = 0
             }
             val mergedByDist = takeGPS.map(m => (m.streams.get(StreamDist), m)).flatMap { sm =>
               sm._1.map { sd =>
