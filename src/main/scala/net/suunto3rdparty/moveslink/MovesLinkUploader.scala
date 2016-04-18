@@ -42,7 +42,7 @@ object MovesLinkUploader {
       log.info("Analyzing " + fileName)
       val file = new File(getDataFolder, fileName)
       val moves = XMLParser.parse(fileName, file)
-      val validMoves = moves.filter(_.streams.contains(StreamHRWithDist))
+      val validMoves = moves.filter(_.streamGet[DataStreamHRWithDist].nonEmpty)
       validMoves.foreach(move => println(s"Quest HR: ${move.toLog}"))
       if (validMoves.isEmpty) {
         markUploadedFile(fileName)
@@ -108,7 +108,7 @@ object MovesLinkUploader {
               gpsMove.span(hrdEnd)
             }
 
-            val merged = takeGPS.map(m => (m.streams(StreamGPS).asInstanceOf[DataStreamGPS], m)).map { sm =>
+            val merged = takeGPS.map(m => (m.stream[DataStreamGPS], m)).map { sm =>
               val hrdAdjusted = sm._1.adjustHrd(hrdMove)
               hrdAdjusted.addStream(sm._2, sm._1)
             }

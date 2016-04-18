@@ -6,26 +6,10 @@ import scala.collection.immutable.SortedMap
 import Util._
 
 import scala.annotation.tailrec
+import scala.reflect.ClassTag
 
 case class GPSPoint(latitude: Double, longitude: Double, elevation: Option[Int])
 case class HRPoint(hr: Int, dist: Double)
-
-sealed trait StreamType
-object StreamGPS extends StreamType {
-  override def toString: String = "GPS"
-}
-object StreamHR extends StreamType {
-  override def toString: String = "HR"
-}
-object StreamDist extends StreamType {
-  override def toString: String = "Dist"
-}
-object StreamHRWithDist extends StreamType {
-  override def toString: String = "HR_Dist"
-}
-object StreamLap extends StreamType {
-  override def toString: String = "Lap"
-}
 
 object DataStream {
   def distanceIsAlmostEmpty(begDist: Double, endDist: Double, begTime: ZonedDateTime, endTime: ZonedDateTime): Boolean = {
@@ -36,7 +20,10 @@ object DataStream {
 
   }
 }
-sealed abstract class DataStream(val streamType: StreamType) {
+sealed abstract class DataStream {
+
+  def typeToLog: String
+  def streamType: Class[_ <: DataStream] = this.getClass
 
   type Item
 
@@ -68,7 +55,7 @@ sealed abstract class DataStream(val streamType: StreamType) {
     pickData(adjusted)
   }
 
-  def toLog = s"$streamType: ${startTime.map(_.toLog).getOrElse("")} .. ${endTime.map(_.toLogShort).getOrElse("")}"
+  def toLog = s"$typeToLog: ${startTime.map(_.toLog).getOrElse("")} .. ${endTime.map(_.toLogShort).getOrElse("")}"
 
   override def toString = toLog
 
@@ -200,11 +187,13 @@ object DataStreamGPS {
 
 }
 
-class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) extends DataStream(StreamGPS) {
+class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) extends DataStream {
 
   import DataStreamGPS._
 
   type Item = GPSPoint
+
+  def typeToLog: String = "GPS"
 
   override def pickData(data: DataMap) = new DataStreamGPS(data)
 
@@ -376,11 +365,10 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
   }
 
   def adjustHrd(hrdMove: Move): Move = {
-    val hrWithDistStream = hrdMove.streams.get(StreamHRWithDist)
+    val hrWithDistStream = hrdMove.streamGet[DataStreamHRWithDist]
     hrWithDistStream.map { dist =>
-      val distTyped = dist.asInstanceOf[DataStreamHRWithDist]
-      val distanceSums = distTyped.stream.mapValues(_.dist)
-      val distances = (distTyped.stream.values.tail zip distTyped.stream.values).map(ab => ab._1.dist - ab._2.dist)
+      val distanceSums = dist.stream.mapValues(_.dist)
+      val distances = (dist.stream.values.tail zip dist.stream.values).map(ab => ab._1.dist - ab._2.dist)
 
       def smoothDistances(todo: Iterable[Double], window: Vector[Double], done: List[Double]): List[Double] = {
         if (todo.isEmpty) done
@@ -404,8 +392,10 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
 
 }
 
-class DataStreamLap(override val stream: SortedMap[ZonedDateTime, String]) extends DataStream(StreamLap) {
+class DataStreamLap(override val stream: SortedMap[ZonedDateTime, String]) extends DataStream {
   type Item = String
+
+  def typeToLog: String = "Laps"
 
   override def pickData(data: DataMap) = new DataStreamLap(data)
   override def isAlmostEmpty = false
@@ -413,8 +403,10 @@ class DataStreamLap(override val stream: SortedMap[ZonedDateTime, String]) exten
   def dropAlmostEmpty: DataStreamLap = this
 }
 
-class DataStreamHRWithDist(override val stream: SortedMap[ZonedDateTime, HRPoint]) extends DataStream(StreamHRWithDist) {
+class DataStreamHRWithDist(override val stream: SortedMap[ZonedDateTime, HRPoint]) extends DataStream {
   type Item = HRPoint
+
+  def typeToLog = "HRDist"
 
   def rebase: DataStream = {
     if (stream.isEmpty) this
@@ -432,8 +424,10 @@ class DataStreamHRWithDist(override val stream: SortedMap[ZonedDateTime, HRPoint
 
 }
 
-class DataStreamHR(override val stream: SortedMap[ZonedDateTime, Int]) extends DataStream(StreamHR) {
+class DataStreamHR(override val stream: SortedMap[ZonedDateTime, Int]) extends DataStream {
   type Item = Int
+
+  def typeToLog = "HR"
 
   override def pickData(data: DataMap) = new DataStreamHR(data)
   override def isAlmostEmpty = false
@@ -441,8 +435,9 @@ class DataStreamHR(override val stream: SortedMap[ZonedDateTime, Int]) extends D
   def dropAlmostEmpty: DataStreamHR = this // TODO: drop
 }
 
-class DataStreamDist(override val stream: SortedMap[ZonedDateTime, Double]) extends DataStream(StreamDist) {
+class DataStreamDist(override val stream: SortedMap[ZonedDateTime, Double]) extends DataStream {
 
+  def typeToLog = "Dist"
 
   type Item = Double
 
