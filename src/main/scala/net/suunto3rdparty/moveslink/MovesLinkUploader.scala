@@ -12,7 +12,7 @@ import resource._
 import scala.annotation.tailrec
 
 object MovesLinkUploader {
-  val fileTest = false
+  val fileTest = true
 
   private val log = Logger.getLogger(getClass)
 
@@ -105,22 +105,33 @@ object MovesLinkUploader {
             val (takeGPS, leftGPS) = if (timeDifference(gpsEnd, hrdEnd).abs <= tolerance && lineHRD.tail.isEmpty) {
               (Some(gpsMove), None)
             } else {
-              gpsMove.takeUntil(hrdEnd)
+              gpsMove.span(hrdEnd)
             }
-            val merged = takeGPS.map(m => (m.streams(StreamGPS).asInstanceOf[DataStreamGPS], m)).map{ sm =>
-              val hrdAdjusted = sm._1.adjustHrd(hrdMove)
-              hrdAdjusted.addStream(sm._2, sm._1)
+            val mergedByDist = takeGPS.map(m => (m.streams.get(StreamDist), m)).flatMap { sm =>
+              sm._1.map { sd =>
+                val hrdAdjusted = sd.asInstanceOf[DataStreamDist].adjustHrd(hrdMove)
+                hrdAdjusted.addStream(sm._2, sm._2.streams(StreamGPS))
+              }
             }
+
+            val merged = mergedByDist.orElse {
+              val mergedByGPS = takeGPS.map(m => (m.streams(StreamGPS).asInstanceOf[DataStreamGPS], m)).map { sm =>
+                val hrdAdjusted = sm._1.adjustHrd(hrdMove)
+                hrdAdjusted.addStream(sm._2, sm._1)
+              }
+              mergedByGPS
+            }
+
             println(s"Merged GPS ${takeGPS.map(_.toLog)} into ${hrdMove.toLog}")
 
             processTimelines(prependNonEmpty(leftGPS, lineGPS.tail), prependNonEmpty(merged, lineHRD.tail), processed)
           } else if (gpsBeg > hrdBeg) {
-            val (takeHRD, leftHRD) = hrdMove.takeUntil(gpsBeg)
+            val (takeHRD, leftHRD) = hrdMove.span(gpsBeg)
 
             processTimelines(lineGPS, prependNonEmpty(leftHRD, lineHRD.tail), prependNonEmpty(takeHRD, processed))
 
           } else  {
-            val (takeGPS, leftGPS) = gpsMove.takeUntil(hrdBeg)
+            val (takeGPS, leftGPS) = gpsMove.span(hrdBeg)
 
             processTimelines(prependNonEmpty(leftGPS, lineGPS.tail), lineHRD, prependNonEmpty(takeGPS, processed))
           }

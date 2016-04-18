@@ -57,8 +57,8 @@ case class Move(fileName: Set[String], header: MoveHeader, streams: Map[StreamTy
     copy(streams = streams + (stream.streamType -> stream), fileName = fileName ++ streamSource.fileName, header = header.merge(streamSource.header))
   }
 
-  def takeUntil(time: ZonedDateTime): (Option[Move], Option[Move]) = {
-    val split = streams.mapValues(_.takeUntil(time))
+  def span(time: ZonedDateTime): (Option[Move], Option[Move]) = {
+    val split = streams.mapValues(_.span(time))
 
     val take = split.mapValues(_._1)
     val left = split.mapValues(_._2)

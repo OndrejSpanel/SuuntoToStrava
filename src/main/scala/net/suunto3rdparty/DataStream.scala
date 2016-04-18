@@ -55,7 +55,7 @@ sealed abstract class DataStream(val streamType: StreamType) {
   // must not be discarded
   def isNeeded: Boolean
 
-  def takeUntil(time: ZonedDateTime): (DataStream, DataStream) = {
+  def span(time: ZonedDateTime): (DataStream, DataStream) = {
     val (take, left) = stream.span(_._1 < time)
     (pickData(take), pickData(left))
   }
@@ -67,9 +67,6 @@ sealed abstract class DataStream(val streamType: StreamType) {
     }
     pickData(adjusted)
   }
-
-  // drop beginning and end with no activity
-  def dropAlmostEmpty: DataStream
 
   def toLog = s"$streamType: ${startTime.map(_.toLog).getOrElse("")} .. ${endTime.map(_.toLogShort).getOrElse("")}"
 
@@ -227,7 +224,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
   // drop beginning and end with no activity
   private type ValueList = List[(ZonedDateTime, GPSPoint)]
 
-  override def dropAlmostEmpty: DataStreamGPS = {
+  def dropAlmostEmpty: Option[(ZonedDateTime, ZonedDateTime)] = {
     if (stream.nonEmpty) {
 
       @tailrec
@@ -241,7 +238,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
         }
       }
 
-      def dropEmptyPrefix(stream: ValueList, timeOffset: Duration, compare: (ZonedDateTime, ZonedDateTime) => Boolean) = {
+      def dropEmptyPrefix(stream: ValueList, timeOffset: Duration, compare: (ZonedDateTime, ZonedDateTime) => Boolean): (ZonedDateTime, ZonedDateTime) = {
         val prefixTime = detectEmptyPrefix(stream.head._1, new GPSRect(stream.head._2), stream, None)
         prefixTime.map { case (prefTime, prefRect) =>
           // trace back the prefix rectangle size
@@ -264,14 +261,16 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
           val timeValidated = prefixValidated.last._1
 
           val offsetPrefTime = timeValidated.plus(timeOffset)
-          stream.dropWhile(t => compare(t._1, offsetPrefTime))
-        }.getOrElse(stream)
+          val edgeTime = if (compare(offsetPrefTime, stream.head._1)) stream.head._1 else offsetPrefTime
+          (edgeTime, stream.last._1)
+        }.getOrElse((stream.head._1, stream.last._1))
       }
 
-      val droppedPrefix = dropEmptyPrefix(stream.toList, Duration.ofSeconds(-10), _ <= _)
-      val droppedPostfix = dropEmptyPrefix(droppedPrefix.reverse, Duration.ofSeconds(+10), _ >= _)
-      new DataStreamGPS(SortedMap(droppedPostfix: _*))
-    } else this
+      val droppedPrefixTime = dropEmptyPrefix(stream.toList, Duration.ofSeconds(-10), _ <= _)
+      val droppedPostfixTime = dropEmptyPrefix(stream.toList.reverse, Duration.ofSeconds(+10), _ >= _)
+      if (droppedPrefixTime._1 >= droppedPostfixTime._1) None
+      else Some((droppedPrefixTime._1, droppedPostfixTime._1))
+    } else None
   }
 
   private def computeSpeedStream: DistStream = {
@@ -444,6 +443,7 @@ class DataStreamHR(override val stream: SortedMap[ZonedDateTime, Int]) extends D
 
 class DataStreamDist(override val stream: SortedMap[ZonedDateTime, Double]) extends DataStream(StreamDist) {
 
+
   type Item = Double
 
   def rebase: DataStream = {
@@ -459,5 +459,10 @@ class DataStreamDist(override val stream: SortedMap[ZonedDateTime, Double]) exte
 
   override def pickData(data: DataMap) = new DataStreamDist(data).rebase
   def dropAlmostEmpty: DataStreamDist = this // TODO: drop
+
+  def adjustHrd(hrdMove: Move): Move = {
+    hrdMove
+  }
+
 }
 
