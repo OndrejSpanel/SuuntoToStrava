@@ -14,6 +14,7 @@ object Main extends App {
 
     log.info("Reading MovesLink2 ...")
     if (!MovesLink2Uploader.checkIfEnvOkay || !MovesLinkUploader.checkIfEnvOkay) {
+      StravaAuth.stop("Moveslink not installed correctly")
       throw new UnsupportedOperationException()
     }
     val alreadyUploaded = MovesLinkUploader.listAlreadyUploaded()
