@@ -42,6 +42,7 @@ object XMLParser {
       heartRate.toInt
     }
 
+
     val timeRange = 0 until header.durationMs by 10000
 
     def timeMs(ms: Int) = header.startTime.plusNanos(ms*1000000L)
@@ -94,7 +95,7 @@ object XMLParser {
     timeToUTC(ZonedDateTime.parse(timeText, dateFormat))
   }
 
-  def parse(fileName: String, xmlFile: File): Seq[Move] = {
+  def parse(fileName: String, xmlFile: File, settings: Settings): Seq[Move] = {
     XMLParser.log.debug("Parsing " + xmlFile.getName)
     val document = XML.loadFile(xmlFile)
 
