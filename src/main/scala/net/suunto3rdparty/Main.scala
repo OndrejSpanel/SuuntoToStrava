@@ -19,17 +19,23 @@ object Main extends App {
       StravaAuth.stop("Moveslink not installed correctly")
       throw new UnsupportedOperationException()
     }
-    val alreadyUploaded = MovesLinkUploader.listAlreadyUploaded()
-    val filesToProcess = MovesLinkUploader.listFiles ++ MovesLink2Uploader.listFiles
+    try {
+      val alreadyUploaded = MovesLinkUploader.listAlreadyUploaded()
+      val filesToProcess = MovesLinkUploader.listFiles ++ MovesLink2Uploader.listFiles
 
-    MovesLinkUploader.pruneObsolete(alreadyUploaded -- filesToProcess)
+      MovesLinkUploader.pruneObsolete(alreadyUploaded -- filesToProcess)
 
-    val index = MovesLink2Uploader.readXMLFiles(after, alreadyUploaded, (num, total) => StravaAuth.progress(s"Reading $num of $total GPS files"))
-    log.info("Reading MovesLink2 done.")
-    log.info("Reading MovesLink ...")
-    val uploaded = MovesLinkUploader.uploadXMLFiles(after, api, alreadyUploaded, index, (num, total) => StravaAuth.progress(s"Processing $num of $total files"))
-    log.info("Upload MovesLink done.")
-    StravaAuth.stop(s"Completed, moves uploaded: $uploaded ")
+      val index = MovesLink2Uploader.readXMLFiles(after, alreadyUploaded, (num, total) => StravaAuth.progress(s"Reading $num of $total GPS files"))
+      log.info("Reading MovesLink2 done.")
+      log.info("Reading MovesLink ...")
+      val uploaded = MovesLinkUploader.uploadXMLFiles(after, api, alreadyUploaded, index, (num, total) => StravaAuth.progress(s"Processing $num of $total files"))
+      log.info("Upload MovesLink done.")
+      StravaAuth.stop(s"Completed, moves uploaded: $uploaded ")
+    } catch {
+      case x: Exception =>
+        StravaAuth.stop(s"Completed with exception ${x.getMessage}")
+        throw x
+    }
   } else {
     StravaAuth.stop("Canceled")
   }
