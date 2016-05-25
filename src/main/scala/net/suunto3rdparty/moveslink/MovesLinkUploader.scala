@@ -140,11 +140,12 @@ object MovesLinkUploader {
           props = new Properties()
           props.load(f)
         }
-        val offset = props.getProperty("questTimeOffset")
-        Settings(offset.toInt)
+        new Settings(props)
       }
     }
-    case class Settings(questTimeOffset: Int)
+    class Settings(props: Properties) {
+      val questTimeOffset: Int = props.getProperty("questTimeOffset", "0").toInt
+    }
 
     val settings = Settings.load
 
