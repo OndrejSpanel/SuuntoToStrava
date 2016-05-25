@@ -161,6 +161,7 @@ object MovesLinkUploader {
 
       if (fileTest) {
         fit.Export(move)
+        uploaded += 1
       } else {
         // upload only non-trivial results
         if (!move.isAlmostEmpty(90)) {
