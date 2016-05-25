@@ -2,6 +2,7 @@ package net.suunto3rdparty
 package strava
 
 import java.io._
+import java.time.ZonedDateTime
 import java.util.zip.GZIPOutputStream
 
 import org.apache.http.client.HttpResponseException
@@ -9,8 +10,10 @@ import org.apache.http.client.fluent.{Form, Request}
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.mime.MultipartEntityBuilder
 import resource._
+import Util._
 
-import scala.util.parsing.json.JSON
+import scala.util.Try
+import scala.util.parsing.json.{JSON, JSONArray, JSONObject}
 
 case class StravaAPIParams(appId: Int, clientSecret: String, code: Option[String])
 
@@ -89,6 +92,30 @@ class StravaAPI(appId: Int, clientSecret: String, code: Option[String]) {
 
     }
     response
+  }
+
+  def mostRecentActivityTime: Option[ZonedDateTime] = {
+    // we might want to add parameters page=0, per_page=1
+    val request = Request.Get(buildURI("athlete/activities")).addHeader("Authorization", authString.get)
+
+    val result = request.execute().returnContent()
+
+    val json = JSON.parseRaw(result.asString())
+
+    val times: Seq[ZonedDateTime] = json match {
+      case Some(a: JSONArray) =>
+        a.list.collect { case o: JSONObject =>
+          val timeString = o.obj("start_date").toString
+          val time = Try { ZonedDateTime.parse(timeString) }
+          time.toOption
+        }.flatten
+      case _ =>
+        Nil
+    }
+
+    val mostRecentTime = if (times.nonEmpty) Some(times.max) else None
+
+    mostRecentTime
   }
 
   /*
@@ -183,8 +210,7 @@ object StravaAPIThisApp {
   }
 }
 
-class StravaAPIThisApp extends StravaAPI(StravaAPIThisApp.getAPIParams) {
-}
+class StravaAPIThisApp extends StravaAPI(StravaAPIThisApp.getAPIParams)
 
 object StravaAccess extends App {
   val api = new StravaAPIThisApp
