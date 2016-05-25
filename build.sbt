@@ -1,6 +1,6 @@
 name := "SuuntoToStrava"
 
-version := "0.2.0-alpha"
+version := "0.3.0-alpha"
 
 scalaVersion := "2.11.8"
 
