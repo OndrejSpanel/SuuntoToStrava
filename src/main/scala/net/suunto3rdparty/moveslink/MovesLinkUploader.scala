@@ -1,11 +1,13 @@
 package net.suunto3rdparty
 package moveslink
 
-import java.io.{File, IOException}
+import java.io.{File, FileInputStream, IOException}
+import java.util.Properties
 
 import strava.StravaAPI
 import Util._
 import org.apache.log4j.Logger
+import resource._
 
 import scala.annotation.tailrec
 
@@ -20,6 +22,8 @@ object MovesLinkUploader {
   }
 
   private val uploadedFolderName = "/uploadedToStrava"
+
+  private val settingsFile = "suuntoToStrava.cfg"
 
   private val uploadedFolder = new File(getDataFolder, uploadedFolderName)
 
@@ -38,7 +42,7 @@ object MovesLinkUploader {
       log.info("Analyzing " + fileName)
       val file = new File(getDataFolder, fileName)
       val moves = XMLParser.parse(fileName, file)
-      val validMoves = moves.filter(_.streams.contains(StreamHRWithDist))
+      val validMoves = moves.filter(_.streamGet[DataStreamHRWithDist].nonEmpty)
       validMoves.foreach(move => println(s"Quest HR: ${move.toLog}"))
       if (validMoves.isEmpty) {
         markUploadedFile(fileName)
@@ -97,22 +101,28 @@ object MovesLinkUploader {
           if (timeDifference(gpsBeg, hrdBeg).abs <= tolerance) {
             // same beginning - drive by HRD
             // use from GPS only as needed by HRD
-            val (takeGPS, leftGPS) = if (timeDifference(gpsEnd, hrdEnd).abs <= tolerance) {
+            // if GPS is only a bit longer than HDR, use it whole, unless there is another HDR waiting for it
+            val (takeGPS, leftGPS) = if (timeDifference(gpsEnd, hrdEnd).abs <= tolerance && lineHRD.tail.isEmpty) {
               (Some(gpsMove), None)
             } else {
-              gpsMove.takeUntil(hrdEnd)
+              gpsMove.span(hrdEnd)
             }
-            val merged = takeGPS.map(m => (m.streams(StreamGPS), m)).map(sm => hrdMove.addStream(sm._2, sm._1))
+
+            val merged = takeGPS.map(m => (m.stream[DataStreamGPS], m)).map { sm =>
+              val hrdAdjusted = sm._1.adjustHrd(hrdMove)
+              hrdAdjusted.addStream(sm._2, sm._1)
+            }
+
             println(s"Merged GPS ${takeGPS.map(_.toLog)} into ${hrdMove.toLog}")
 
             processTimelines(prependNonEmpty(leftGPS, lineGPS.tail), prependNonEmpty(merged, lineHRD.tail), processed)
           } else if (gpsBeg > hrdBeg) {
-            val (takeHRD, leftHRD) = hrdMove.takeUntil(gpsBeg)
+            val (takeHRD, leftHRD) = hrdMove.span(gpsBeg)
 
             processTimelines(lineGPS, prependNonEmpty(leftHRD, lineHRD.tail), prependNonEmpty(takeHRD, processed))
 
           } else  {
-            val (takeGPS, leftGPS) = gpsMove.takeUntil(hrdBeg)
+            val (takeGPS, leftGPS) = gpsMove.span(hrdBeg)
 
             processTimelines(prependNonEmpty(leftGPS, lineGPS.tail), lineHRD, prependNonEmpty(takeGPS, processed))
           }
@@ -121,7 +131,26 @@ object MovesLinkUploader {
       }
     }
 
-    val toUpload = processTimelines(timelineGPS, timelineHR, Nil).reverse
+
+    object Settings {
+      def load: Settings = {
+        val file = new File(getDataFolder, settingsFile)
+        var props: Properties = new Properties()
+        for (f <- managed(new FileInputStream(file))) {
+          props = new Properties()
+          props.load(f)
+        }
+        val offset = props.getProperty("questTimeOffset")
+        Settings(offset.toInt)
+      }
+    }
+    case class Settings(questTimeOffset: Int)
+
+    val settings = Settings.load
+
+    val timelineHRAdjusted = timelineHR.map(_.timeOffset(settings.questTimeOffset))
+
+    val toUpload = processTimelines(timelineGPS, timelineHRAdjusted, Nil).reverse
 
     var uploaded = 0
     var processed = 0
@@ -131,7 +160,7 @@ object MovesLinkUploader {
       println(s"Uploading: ${move.toLog}")
 
       if (fileTest) {
-        tcx.Export(move)
+        fit.Export(move)
       } else {
         // upload only non-trivial results
         if (!move.isAlmostEmpty(90)) {

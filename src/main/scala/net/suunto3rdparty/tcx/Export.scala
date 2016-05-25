@@ -87,7 +87,7 @@ object Export {
 
     //noinspection MapKeys - need to keep order
     // detect laps and write them
-    val lapBoundariesAll = timeBeg +: move.streams.get(StreamLap).map(_.asInstanceOf[DataStreamLap].stream.map(_._1).toSeq).getOrElse(Seq(timeBeg)) :+ timeEnd
+    val lapBoundariesAll = timeBeg +: move.streamGet[DataStreamLap].map(_.stream.map(_._1).toSeq).getOrElse(Seq(timeBeg)) :+ timeEnd
 
     val lapBoundaries = lapBoundariesAll.distinct
 

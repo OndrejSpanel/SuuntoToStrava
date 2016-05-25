@@ -4,6 +4,8 @@ import java.time.{Duration, ZonedDateTime}
 
 import Util._
 
+import scala.reflect._
+
 case class Header(moveHeader: MoveHeader, startTime: ZonedDateTime = ZonedDateTime.now, durationMs: Int = 0, calories: Int = 0, distance: Int = 0)
 
 case class Lap(name: String, timestamp: ZonedDateTime)
@@ -21,13 +23,24 @@ object Move {
       }
     }
   }
+
+  def convertMap(streamSeq: Seq[DataStream]): Map[Class[_], DataStream] = {
+    streamSeq.map(s => s.streamType -> s).toMap
+  }
 }
 
-case class Move(fileName: Set[String], header: MoveHeader, streams: Map[StreamType, DataStream]) {
+case class Move(fileName: Set[String], header: MoveHeader, streams: Map[Class[_], DataStream]) {
+  def timeOffset(bestOffset: Int): Move = {
+    copy(streams = streams.mapValues(_.timeOffset(bestOffset)))
+  }
 
   def this(fileName: Set[String], header: MoveHeader, streamSeq: DataStream*) = {
-    this(fileName, header, streamSeq.map(s => s.streamType -> s).toMap)
+    this(fileName, header, Move.convertMap(streamSeq))
   }
+
+  def stream[T <: DataStream: ClassTag]: T = streams(classTag[T].runtimeClass).asInstanceOf[T]
+
+  def streamGet[T <: DataStream: ClassTag]: Option[T] = streams.get(classTag[T].runtimeClass).map(_.asInstanceOf[T])
 
   private def startTimeOfStreams(ss: Iterable[DataStream]) = ss.flatMap(_.startTime).minOpt
   private def endTimeOfStreams(ss: Iterable[DataStream]) = ss.flatMap(_.endTime).maxOpt
@@ -48,14 +61,14 @@ case class Move(fileName: Set[String], header: MoveHeader, streams: Map[StreamTy
     !streams.exists(_._2.stream.nonEmpty) || endTime.get < startTime.get.plusSeconds(minDurationSec) || streams.exists(x => x._2.isAlmostEmpty)
   }
 
-  def toLog: String = streams.mapValues(_.toLog).mkString(", ")
+  def toLog: String = streams.values.map(_.toLog).mkString(", ")
 
   def addStream(streamSource: Move, stream: DataStream): Move = {
     copy(streams = streams + (stream.streamType -> stream), fileName = fileName ++ streamSource.fileName, header = header.merge(streamSource.header))
   }
 
-  def takeUntil(time: ZonedDateTime): (Option[Move], Option[Move]) = {
-    val split = streams.mapValues(_.takeUntil(time))
+  def span(time: ZonedDateTime): (Option[Move], Option[Move]) = {
+    val split = streams.mapValues(_.span(time))
 
     val take = split.mapValues(_._1)
     val left = split.mapValues(_._2)

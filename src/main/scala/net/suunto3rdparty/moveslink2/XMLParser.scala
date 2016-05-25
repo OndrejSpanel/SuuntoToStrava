@@ -200,17 +200,23 @@ object XMLParser {
       new DataStreamDist(SortedMap(timeSeq zip distanceSeq:_*))
     }
 
-    val gpsStreamRaw = new DataStreamGPS(SortedMap(trackPoints:_*))
+    val gpsStream = new DataStreamGPS(SortedMap(trackPoints:_*))
 
-    val gpsStream = gpsStreamRaw.dropAlmostEmpty
-
-    if (lapPoints.nonEmpty) {
-      // TODO: merge move headers as well
+    val gpsMove = if (lapPoints.nonEmpty) {
       val lapStream = new DataStreamLap(SortedMap(lapPoints.map(l => l.timestamp -> l.name):_*))
       new Move(Set(fileName), header.moveHeader, gpsStream, hrDistStream, lapStream)
     } else {
       new Move(Set(fileName), header.moveHeader, gpsStream, hrDistStream)
     }
+
+
+    val gpsDroppedEmpty = gpsStream.dropAlmostEmpty match {
+      case Some((keepStart, keepEnd)) =>
+        gpsMove.span(keepStart)._2.flatMap(_.span(keepEnd)._1)
+      case None =>
+        None
+    }
+    gpsDroppedEmpty.getOrElse(new Move(Set(fileName), header.moveHeader))
   }
 
   def parse(fileName: String, xmlFile: File): Try[Move] = {

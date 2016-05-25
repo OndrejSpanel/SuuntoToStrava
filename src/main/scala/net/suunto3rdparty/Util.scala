@@ -10,12 +10,12 @@ object Util {
     override def compare(that: ZonedDateTimeOps): Int = time.compareTo(that.time)
 
     def toLog: String = {
-      val format = DateTimeFormatter.ofPattern("dd/MM HH:mm")
+      val format = DateTimeFormatter.ofPattern("dd/MM HH:mm:ss")
       format.format(time)
     }
 
     def toLogShort: String = {
-      val format = DateTimeFormatter.ofPattern("HH:mm")
+      val format = DateTimeFormatter.ofPattern("HH:mm:ss")
       format.format(time)
     }
 

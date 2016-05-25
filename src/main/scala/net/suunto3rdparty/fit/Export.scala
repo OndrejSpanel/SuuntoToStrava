@@ -86,7 +86,13 @@ object Export {
       case Orienteering => (Sport.RUNNING, SubSport.TRAIL)
       case MountainBike => (Sport.CYCLING, SubSport.MOUNTAIN)
       case Cycling => (Sport.CYCLING, SubSport.ROAD)
-      case Unknown => (Sport.GENERIC, SubSport.GENERIC)
+      case Unknown =>
+        move.streamGet[DataStreamGPS].map { gps =>
+          val stats = gps.speedStats
+          // autodetect based on a speed
+          if (stats._3 >= 30 || stats._2 >= 15) (Sport.CYCLING, SubSport.MOUNTAIN)
+          else (Sport.GENERIC, SubSport.GENERIC) // will be most likely handled as run by Strava
+        }.getOrElse((Sport.HIKING, SubSport.CASUAL_WALKING))
     }
     val timeBeg = move.startTime.get
     val timeEnd = move.endTime.get
