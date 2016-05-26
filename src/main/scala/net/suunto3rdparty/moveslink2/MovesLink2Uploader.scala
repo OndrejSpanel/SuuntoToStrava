@@ -36,14 +36,16 @@ object MovesLink2Uploader {
     var processed = 0
     val indexed = for (fileName <- toRead) yield {
       MovesLink2Uploader.log.info("Analyzing " + fileName)
-      val parsed = XMLParser.parse(fileName, new File(getDataFolder, fileName))
+      val parsed = XMLParser.parse(fileName, new File(getDataFolder, fileName)).toOption
       val parsedAfter = parsed.filter { move =>
         after.isEmpty || move.startTime.exists(_ >= after.get)
       }
+      val skipped = parsed.toSeq diff parsedAfter.toSeq
+      skipped.foreach(moveslink.MovesLinkUploader.markUploaded)
       processed += 1
       progress(processed, toRead.size)
       parsedAfter.foreach(move => println(s"GPS: ${move.toLog}"))
-      parsedAfter.toOption
+      parsedAfter
     }
     indexed.flatten
   }
