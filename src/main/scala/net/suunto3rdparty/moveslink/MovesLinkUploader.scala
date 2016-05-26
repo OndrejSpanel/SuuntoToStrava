@@ -30,6 +30,20 @@ object MovesLinkUploader {
 
   def uploadXMLFiles(after: Option[ZonedDateTime], api: StravaAPI, alreadyUploaded: Set[String], index: Set[Move], progress: (Int, Int) => Unit): Int = {
 
+    object Settings {
+      def load: Settings = {
+        val file = new File(getDataFolder, settingsFile)
+        var props: Properties = new Properties()
+        for (f <- managed(new FileInputStream(file))) {
+          props = new Properties()
+          props.load(f)
+        }
+        new Settings(props)
+      }
+    }
+
+    val settings = Settings.load
+
     try {
       uploadedFolder.mkdir()
     } catch {
@@ -42,7 +56,7 @@ object MovesLinkUploader {
     } yield {
       log.info("Analyzing " + fileName)
       val file = new File(getDataFolder, fileName)
-      val moves = XMLParser.parse(fileName, file)
+      val moves = XMLParser.parse(fileName, file, settings)
       val validMoves = moves.filter(_.streamGet[DataStreamHRWithDist].nonEmpty)
 
       val validMovesAfter = validMoves.filter(_.startsAfter(after))
@@ -139,23 +153,6 @@ object MovesLinkUploader {
       }
     }
 
-
-    object Settings {
-      def load: Settings = {
-        val file = new File(getDataFolder, settingsFile)
-        var props: Properties = new Properties()
-        for (f <- managed(new FileInputStream(file))) {
-          props = new Properties()
-          props.load(f)
-        }
-        new Settings(props)
-      }
-    }
-    class Settings(props: Properties) {
-      val questTimeOffset: Int = props.getProperty("questTimeOffset", "0").toInt
-    }
-
-    val settings = Settings.load
 
     val timelineHRAdjusted = timelineHR.map(_.timeOffset(settings.questTimeOffset))
 
