@@ -34,7 +34,8 @@ object StravaAuth {
   private val authResult = Promise[String]()
   private var server: Option[ServerShutdown] = None
 
-  private var reportProgress: String = "Processing and uploading..."
+  private var reportProgress: String = "Reading files..."
+
   private var reportResult: String = ""
   private var session: String = ""
 
@@ -333,6 +334,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
   }
 
   def progress(status: String): Unit = {
+    println(s"Progress: $status")
     reportProgress = status
   }
 

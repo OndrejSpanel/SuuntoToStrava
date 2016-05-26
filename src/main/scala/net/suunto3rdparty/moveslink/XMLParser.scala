@@ -20,17 +20,24 @@ object XMLParser {
   def parseSamples(fileName: String, header: Header, samples: Node): Move = {
     val distanceStr = (samples \ "Distance")(0).text
     val heartRateStr = (samples \ "HR")(0).text
+    def insertZeroHead(strs: Seq[String]) = {
+      if (strs.head.isEmpty) "0" +: strs.tail
+      else strs
+    }
+    def duplicateHead(strs: Seq[String]) = {
+      if (strs.head.isEmpty) strs.tail.head +: strs.tail
+      else strs
+    }
+
     var currentSum: Double = 0
     val distanceSamples = for {
-      distance <- distanceStr.split(" ")
-      if !distance.trim.isEmpty
+      distance <- insertZeroHead(distanceStr.split(" "))
     } yield {
       currentSum += distance.toDouble
       currentSum
     }
     val heartRateSamples = for {
-      heartRate <- heartRateStr.split(" ")
-      if !heartRate.trim.isEmpty
+      heartRate <- duplicateHead(heartRateStr.split(" "))
     } yield {
       heartRate.toInt
     }

@@ -27,16 +27,17 @@ object MovesLink2Uploader {
 
   def listFiles: Set[String] = getDataFolder.list.toSet.filter(_.endsWith(".sml"))
 
-  def readXMLFiles(alreadyUploaded: Set[String]): Set[Move] = {
-    val indexed = for {
-      fileName <- listFiles
-      if !alreadyUploaded.contains(fileName)
-    } yield {
+  def readXMLFiles(alreadyUploaded: Set[String], progress: (Int, Int) => Unit): Set[Move] = {
+    val toRead = listFiles diff alreadyUploaded
+    val total = toRead.size
+    progress(0, total)
+    var processed = 0
+    val indexed = for (fileName <- toRead) yield {
       MovesLink2Uploader.log.info("Analyzing " + fileName)
       val parsed = XMLParser.parse(fileName, new File(getDataFolder, fileName))
-      parsed.foreach { move =>
-        println(s"GPS: ${move.toLog}")
-      }
+      processed += 1
+      progress(processed, toRead.size)
+      parsed.foreach(move => println(s"GPS: ${move.toLog}"))
       parsed.toOption
     }
     indexed.flatten
