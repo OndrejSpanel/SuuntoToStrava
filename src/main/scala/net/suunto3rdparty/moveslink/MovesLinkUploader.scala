@@ -49,6 +49,10 @@ object MovesLinkUploader {
         after.isEmpty || move.startTime.exists(_ >= after.get) // TODO: DRY
       }
 
+      val skipped = validMoves diff validMovesAfter
+
+      skipped.foreach(markUploaded)
+
       validMovesAfter.foreach(move => println(s"Quest HR: ${move.toLog}"))
       if (validMovesAfter.isEmpty) {
         markUploadedFile(fileName)
