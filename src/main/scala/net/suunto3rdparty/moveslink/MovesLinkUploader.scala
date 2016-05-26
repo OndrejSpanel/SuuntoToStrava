@@ -2,6 +2,7 @@ package net.suunto3rdparty
 package moveslink
 
 import java.io.{File, FileInputStream, IOException}
+import java.time.ZonedDateTime
 import java.util.Properties
 
 import strava.StravaAPI
@@ -27,7 +28,7 @@ object MovesLinkUploader {
 
   private val uploadedFolder = new File(getDataFolder, uploadedFolderName)
 
-  def uploadXMLFiles(api: StravaAPI, alreadyUploaded: Set[String], index: Set[Move], progress: (Int, Int) => Unit): Int = {
+  def uploadXMLFiles(after: Option[ZonedDateTime], api: StravaAPI, alreadyUploaded: Set[String], index: Set[Move], progress: (Int, Int) => Unit): Int = {
 
     try {
       uploadedFolder.mkdir()
@@ -43,12 +44,19 @@ object MovesLinkUploader {
       val file = new File(getDataFolder, fileName)
       val moves = XMLParser.parse(fileName, file)
       val validMoves = moves.filter(_.streamGet[DataStreamHRWithDist].nonEmpty)
-      validMoves.foreach(move => println(s"Quest HR: ${move.toLog}"))
-      if (validMoves.isEmpty) {
+
+      val validMovesAfter = validMoves.filter(_.startsAfter(after))
+
+      val skipped = validMoves diff validMovesAfter
+
+      skipped.foreach(markUploaded)
+
+      validMovesAfter.foreach(move => println(s"Quest HR: ${move.toLog}"))
+      if (validMovesAfter.isEmpty) {
         markUploadedFile(fileName)
       }
 
-      validMoves
+      validMovesAfter
     }
 
     val questMoves = questMovesGather.toSeq.flatten
