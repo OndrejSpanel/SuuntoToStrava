@@ -25,7 +25,7 @@ object Main extends App {
 
       MovesLinkUploader.pruneObsolete(alreadyUploaded -- filesToProcess)
 
-      val index = MovesLink2Uploader.readXMLFiles(after, alreadyUploaded)
+      val index = MovesLink2Uploader.readXMLFiles(after, alreadyUploaded, (num, total) => StravaAuth.progress(s"Reading $num of $total GPS files"))
       log.info("Reading MovesLink2 done.")
       log.info("Reading MovesLink ...")
       val uploaded = MovesLinkUploader.uploadXMLFiles(after, api, alreadyUploaded, index, (num, total) => StravaAuth.progress(s"Processing $num of $total files"))
