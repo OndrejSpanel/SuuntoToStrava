@@ -37,9 +37,7 @@ object MovesLink2Uploader {
     val indexed = for (fileName <- toRead) yield {
       MovesLink2Uploader.log.info("Analyzing " + fileName)
       val parsed = XMLParser.parse(fileName, new File(getDataFolder, fileName)).toOption
-      val parsedAfter = parsed.filter { move =>
-        after.isEmpty || move.startTime.exists(_ >= after.get)
-      }
+      val parsedAfter = parsed.filter(_.startsAfter(after))
       val skipped = parsed.toSeq diff parsedAfter.toSeq
       skipped.foreach(moveslink.MovesLinkUploader.markUploaded)
       processed += 1

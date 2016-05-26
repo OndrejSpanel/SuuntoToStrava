@@ -30,12 +30,12 @@ object Move {
 }
 
 case class Move(fileName: Set[String], header: MoveHeader, streams: Map[Class[_], DataStream]) {
-  def timeOffset(bestOffset: Int): Move = {
-    copy(streams = streams.mapValues(_.timeOffset(bestOffset)))
-  }
-
   def this(fileName: Set[String], header: MoveHeader, streamSeq: DataStream*) = {
     this(fileName, header, Move.convertMap(streamSeq))
+  }
+
+  def timeOffset(bestOffset: Int): Move = {
+    copy(streams = streams.mapValues(_.timeOffset(bestOffset)))
   }
 
   def stream[T <: DataStream: ClassTag]: T = streams(classTag[T].runtimeClass).asInstanceOf[T]
@@ -61,6 +61,10 @@ case class Move(fileName: Set[String], header: MoveHeader, streams: Map[Class[_]
     !streams.exists(_._2.stream.nonEmpty) || endTime.get < startTime.get.plusSeconds(minDurationSec) || streams.exists(x => x._2.isAlmostEmpty)
   }
 
+  def startsAfter(after: Option[ZonedDateTime]): Boolean = {
+    after.isEmpty || startTime.exists(_ >= after.get)
+  }
+  
   def toLog: String = streams.values.map(_.toLog).mkString(", ")
 
   def addStream(streamSource: Move, stream: DataStream): Move = {

@@ -45,9 +45,7 @@ object MovesLinkUploader {
       val moves = XMLParser.parse(fileName, file)
       val validMoves = moves.filter(_.streamGet[DataStreamHRWithDist].nonEmpty)
 
-      val validMovesAfter = validMoves.filter { move =>
-        after.isEmpty || move.startTime.exists(_ >= after.get) // TODO: DRY
-      }
+      val validMovesAfter = validMoves.filter(_.startsAfter(after))
 
       val skipped = validMoves diff validMovesAfter
 
