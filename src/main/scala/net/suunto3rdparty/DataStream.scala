@@ -4,7 +4,6 @@ import java.time.{Duration, ZonedDateTime}
 
 import scala.collection.immutable.SortedMap
 import Util._
-import com.sun.javafx.geom.transform.Identity
 
 import scala.annotation.tailrec
 
@@ -304,7 +303,8 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       def selectInner[T](data: SortedMap[ZonedDateTime, T]) = data.dropWhile(_._1 < begMatch).takeWhile(_._1 < endMatch)
       val distToMatch = selectInner(offsetStream)
 
-      val speedToMatch = (distToMatch zip distToMatch.tail).map {
+      val distPairs = distToMatch zip distToMatch.drop(1) // drop(1), not tail, because distToMatch may be empty
+      val speedToMatch = distPairs.map {
         case ((aTime, aDist), (bTime, bDist)) => aTime -> aDist / Duration.between(aTime, bTime).getSeconds
       }
       val smoothedSpeed = selectInner(speedStream)
@@ -322,9 +322,12 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
         }
       }
 
-      val error = compareSpeedHistory(smoothedSpeed, speedToMatch, 0)
-
-      error
+      if (smoothedSpeed.isEmpty || speedToMatch.isEmpty) {
+        Double.MaxValue
+      } else {
+        val error = compareSpeedHistory(smoothedSpeed, speedToMatch, 0)
+        error
+      }
     }
 
   }
