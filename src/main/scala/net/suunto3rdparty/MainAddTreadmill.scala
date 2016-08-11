@@ -41,6 +41,10 @@ object MainAddTreadmill extends App {
 
   val totalDistance = distances.sum
 
+  def getCoordAtDistance(dist: Double): (Double, Double) = {
+    (routeCoord(0)._1, routeCoord(0)._2)
+  }
+
   // load FIT, output as FIT again, only enriched with the GPX data
 
 
@@ -50,8 +54,20 @@ object MainAddTreadmill extends App {
     try {
       val listener = new MesgListener {
         override def onMesg(mesg: Mesg): Unit = {
-          println(mesg.getName)
           encode.write(mesg)
+          if (mesg.getName == "record") {
+            // enrich distance records with GPS data
+            val dist = mesg.getField("distance").getFloatValue
+            val time = mesg.getField("timestamp").getLongValue
+            //val time = mesg.getTimestamp
+            val myMsg = new RecordMesg()
+            val coord = getCoordAtDistance(dist.toDouble)
+            val longLatScale = (1L << 31).toDouble / 180
+            myMsg.setTimestamp(new DateTime(time))
+            myMsg.setPositionLong((coord._2 * longLatScale).toInt)
+            myMsg.setPositionLat((coord._1 * longLatScale).toInt)
+            encode.write(myMsg)
+          }
         }
       }
       decode.read(in, listener)
