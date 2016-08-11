@@ -99,13 +99,14 @@ object MainAddTreadmill extends App {
         override def onMesg(mesg: Mesg): Unit = {
           if (mesg.getName == "record") {
             // TODO: fix distance to match GPS data
+            encode.write(mesg)
             // enrich distance records with GPS data
             val dist = mesg.getField("distance").getFloatValue
             val fixedDist = dist / fitDistance * gpsDistance
             val time = mesg.getField("timestamp").getLongValue
             //val time = mesg.getTimestamp
             val myMsg = new RecordMesg()
-            val coord = getCoordAtDistance(dist.toDouble)
+            val coord = getCoordAtDistance(fixedDist.toDouble)
             val longLatScale = (1L << 31).toDouble / 180
             myMsg.setTimestamp(new DateTime(time))
             myMsg.setPositionLong((coord._2 * longLatScale).toInt)
