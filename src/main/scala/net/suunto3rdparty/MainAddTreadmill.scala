@@ -16,9 +16,10 @@ object MainAddTreadmill extends App {
   def createResultPath(s: String, suffix: String) = {
 
     val ext = progressPath.lastIndexOf('.')
-    if (ext<0) progressPath + suffix
+    if (ext < 0) progressPath + suffix
     else progressPath.take(ext) + suffix + progressPath.drop(ext)
   }
+
   val resultPath = createResultPath(progressPath, "_track")
 
   // parse GPX
@@ -39,20 +40,56 @@ object MainAddTreadmill extends App {
   }
 
   val distances = diffs.scanLeft(0.0) { case (sum, d) =>
-      sum + d
+    sum + d
   }
 
-  val totalDistance = distances.last
+  val gpsDistance = distances.last
+
 
   def getCoordAtDistance(dist: Double): (Double, Double) = {
     val i = distances.indexWhere(_ >= dist)
     // TODO: interpolation
     if (i < 0) routeCoord.last
-    else routeCoord(i)
+    else if (i > 0) {
+      def lerp(a: Double, b: Double, f: Double) = a + (b - a) * f
+
+      def lerpC(a: (Double, Double), b: (Double, Double), f: Double) = (lerp(a._1, b._1, f), lerp(a._2, b._2, f))
+
+      val f = (dist - distances(i - 1)) / (distances(i) - distances(i - 1))
+      lerpC(routeCoord(i - 1), routeCoord(i), f)
+    } else routeCoord(i)
   }
 
   // load FIT, output as FIT again, only enriched with the GPX data
 
+  def readDistance(in: InputStream): Double = {
+    trait LastDist {
+      def lastDist: Float
+    }
+    val listener = new MesgListener with LastDist {
+      var lastDist = 0f
+
+      override def onMesg(mesg: Mesg): Unit = {
+        if (mesg.getName == "record") {
+          val dist = mesg.getField("distance").getFloatValue
+          lastDist = dist
+        }
+      }
+    }
+
+    val decode = new Decode
+    decode.read(in, listener)
+    listener.lastDist
+  }
+
+  val fitDistance = {
+    val is = new FileInputStream(progressPath)
+    try {
+      readDistance(is)
+    } finally {
+      is.close()
+    }
+  }
 
   def processFitFile(in: InputStream, out: IoFile): Unit = {
     val decode = new Decode
@@ -60,10 +97,11 @@ object MainAddTreadmill extends App {
     try {
       val listener = new MesgListener {
         override def onMesg(mesg: Mesg): Unit = {
-          encode.write(mesg)
           if (mesg.getName == "record") {
+            // TODO: fix distance to match GPS data
             // enrich distance records with GPS data
             val dist = mesg.getField("distance").getFloatValue
+            val fixedDist = dist / fitDistance * gpsDistance
             val time = mesg.getField("timestamp").getLongValue
             //val time = mesg.getTimestamp
             val myMsg = new RecordMesg()
@@ -73,6 +111,8 @@ object MainAddTreadmill extends App {
             myMsg.setPositionLong((coord._2 * longLatScale).toInt)
             myMsg.setPositionLat((coord._1 * longLatScale).toInt)
             encode.write(myMsg)
+          } else {
+            encode.write(mesg)
           }
         }
       }
