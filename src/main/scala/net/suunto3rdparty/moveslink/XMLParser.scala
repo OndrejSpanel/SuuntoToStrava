@@ -17,7 +17,7 @@ object XMLParser {
   private val log = Logger.getLogger(XMLParser.getClass)
   private val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault)
 
-  def parseSamples(fileName: String, header: Header, samples: Node): Move = {
+  def parseSamples(fileName: String, header: Header, samples: Node, settings: Settings): Move = {
     val distanceStr = (samples \ "Distance")(0).text
     val heartRateStr = (samples \ "HR")(0).text
     def insertZeroHead(strs: Seq[String]) = {
@@ -42,13 +42,35 @@ object XMLParser {
       heartRate.toInt
     }
 
+    val validatedHR = heartRateSamples.map {
+      hr =>
+        if (hr > settings.maxHR) None // TODO: remove neighbouring samples as well
+        else Some(hr)
+    }
+
+    // drop two samples around each None
+
+    def slidingRepeatHeadTail[T](s: Seq[T], slide: Int) = {
+      val prefix = Seq.fill(slide / 2)(s.head)
+      val postfix = Seq.fill(slide - 1 - slide / 2)(s.last)
+      val slideSource = prefix ++ s ++ postfix
+      slideSource.sliding(slide)
+    }
+
+    val slide5 = slidingRepeatHeadTail(validatedHR, 5)
+
+    val validatedCleanedHR = slide5.map {
+      case s5 if !s5.contains(None) => s5(2)
+      case _ => None
+    }.toIndexedSeq
+
     val timeRange = 0 until header.durationMs by 10000
 
     def timeMs(ms: Int) = header.startTime.plusNanos(ms*1000000L)
 
-    val hrWithDist = (heartRateSamples zip distanceSamples).map{ case (hr, d) => HRPoint(hr, d)}
+    val hrWithDist = (validatedHR zip distanceSamples).map{ case (hr, d) => hr.map(s => HRPoint(s, d))}
 
-    val timedMap = (timeRange zip hrWithDist).map { case (t, s) =>
+    val timedMap = (timeRange zip hrWithDist).collect { case (t, Some(s)) =>
       timeMs(t) -> s
     }
 
@@ -94,7 +116,7 @@ object XMLParser {
     timeToUTC(ZonedDateTime.parse(timeText, dateFormat))
   }
 
-  def parse(fileName: String, xmlFile: File): Seq[Move] = {
+  def parse(fileName: String, xmlFile: File, settings: Settings): Seq[Move] = {
     XMLParser.log.debug("Parsing " + xmlFile.getName)
     val document = XML.loadFile(xmlFile)
 
@@ -127,15 +149,17 @@ object XMLParser {
 
         val laps = lapDurations.scanLeft(header.startTime) { (time, duration) => time.plus(duration)}
 
-        val suuntoMove = parseSamples(fileName, header, samples)
+        val suuntoMove = parseSamples(fileName, header, samples, settings)
+
         val moveWithLaps = if (laps.nonEmpty) {
           suuntoMove.addStream(suuntoMove, new DataStreamLap(SortedMap(laps.map(time => time -> "Manual"): _*)))
         } else suuntoMove
         Some(moveWithLaps)
       }
       catch {
-        case e: Exception =>
+        case ex: Exception =>
           XMLParser.log.info(s"Data invalid in the no. ${i + 1} of the moves")
+          //println(ex.printStackTrace)
           None
       }
     }
