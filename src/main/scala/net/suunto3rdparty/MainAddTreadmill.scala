@@ -25,6 +25,21 @@ object MainAddTreadmill extends App {
 
   val gpx = XML.loadFile(routePath)
 
+  val routeCoordXml = gpx \ "trk" \ "trkseg" \ "trkpt"
+
+  val routeCoord = routeCoordXml.map { rc =>
+    val lat = (rc \ "@lat").text.toDouble
+    val lon = (rc \ "@lon").text.toDouble
+    (lat, lon)
+  }
+
+  val distances = (routeCoord zip routeCoord.drop(1)).map {
+    case (b, e) =>
+      GPS.distance(b._1, b._2, e._1, e._2)
+
+  }
+
+  val totalDistance = distances.sum
 
   // load FIT, output as FIT again, only enriched with the GPX data
 
@@ -44,14 +59,6 @@ object MainAddTreadmill extends App {
       in.close()
       encode.close()
     }
-  }
-
-  val routeCoordXml = gpx \ "trk" \ "trkseg" \ "trkpt"
-
-  val routeCoord = routeCoordXml.map { rc =>
-    val lat = (rc \ "@lat").text.toDouble
-    val lon = (rc \ "@lon").text.toDouble
-    (lon, lat)
   }
 
   val is = new FileInputStream(progressPath)
