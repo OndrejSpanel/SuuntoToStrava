@@ -33,16 +33,22 @@ object MainAddTreadmill extends App {
     (lat, lon)
   }
 
-  val distances = (routeCoord zip routeCoord.drop(1)).map {
+  val diffs = (routeCoord zip routeCoord.drop(1)).map {
     case (b, e) =>
       GPS.distance(b._1, b._2, e._1, e._2)
-
   }
 
-  val totalDistance = distances.sum
+  val distances = diffs.scanLeft(0.0) { case (sum, d) =>
+      sum + d
+  }
+
+  val totalDistance = distances.last
 
   def getCoordAtDistance(dist: Double): (Double, Double) = {
-    (routeCoord(0)._1, routeCoord(0)._2)
+    val i = distances.indexWhere(_ >= dist)
+    // TODO: interpolation
+    if (i < 0) routeCoord.last
+    else routeCoord(i)
   }
 
   // load FIT, output as FIT again, only enriched with the GPX data
