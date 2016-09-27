@@ -23,17 +23,6 @@ in combination [Suunto Quest sporttester watches][SuuntoQuest] with [Strava][Str
 - you can review all uploaded activities by following links to Strava. All activities are upload as private, so that
 you can review and edit them before making visibile to others.
 
-# Notes
-As far as I know, the utility works fine, but there are no guarantees. If you experience some issues or if you want to
-provide some feedback, use [the issue tracker][issues].
-
-It may work with other combinations of GPS Track Pod and other Suunto Devices, but this is not tested.
-Adding support for other Suunto watches should be easy if needed, only moveslink.XMLParser class would need to be adjusted.
-
-The utility uses local copies of data uploaded to Movescount by Moveslink software, merges GPS and Heart Rate data
-and sends them to Strava. When using this utility you should disable Movescount sending data to Strava on its own, 
-or remove Strava integration from Movescount completely.
-
 ## Quest time offset
 
 The utility solves one problem which seems to be completely ignored by Suunto Movescount merge. The moves download from
@@ -58,6 +47,17 @@ watch record, that part of GPS data is uploaded as a separate activity.
 The utility includes a safety heuristics preventing uploading rides as runs, as this often results in Strava invalidating
 running Estimated Best efforts. The heuristics is based on maximum speed achieved. If you are very fast runner, you might
 occasionally have to change the activity type to running after uploading.
+
+# Notes
+As far as I know, the utility works fine, but there are no guarantees. If you experience some issues or if you want to
+provide some feedback, use [the issue tracker][issues].
+
+It may work with other combinations of GPS Track Pod and other Suunto Devices, but this is not tested.
+Adding support for other Suunto watches should be easy if needed, only moveslink.XMLParser class would need to be adjusted.
+
+The utility uses local copies of data uploaded to Movescount by Moveslink software, merges GPS and Heart Rate data
+and sends them to Strava. When using this utility you should disable Movescount sending data to Strava on its own, 
+or remove Strava integration from Movescount completely.
 
 Example of multi-sport activities workflow, like triathlon:
 
