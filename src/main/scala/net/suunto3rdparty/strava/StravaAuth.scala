@@ -131,6 +131,13 @@ function updateStatus() {
   }, $pollPeriod)
 }
 
+function updateClock() {
+  document.getElementById("time").innerHTML = currentTime();
+  setTimeout(function () {
+    updateClock();
+  }, 1000);
+}
+
 function submitSettings(f) {
   console.log(f);
   var maxHR = f.elements["max_hr"].value;
@@ -149,6 +156,13 @@ function closingCode(){
   }
 }
 
+function currentTime() {
+  var d = new Date();
+  var n = d.toLocaleTimeString('en-US', {hour12: false});
+  //var n = d.toLocaleTimeString();
+  return n;
+}
+
 function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** boolean */ async) {
   xmlhttp.open("POST", request, async); // POST to prevent caching
   xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
@@ -164,11 +178,15 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
           <form onSubmit="return submitSettings(this)">
             <table>
               <tr><td>
-                Max HR</td><td><input type="text" name="max_hr" value={Settings.maxHR.toString}></input>
+                Max HR</td><td><input type="number" name="max_hr" min="100" max="260" value={Settings.maxHR.toString}></input>
               </td></tr>
               <tr><td>
-                Quest time offset</td><td> <input type="text" name="quest_time_offset" value={Settings.questTimeOffset.toString}></input>
+                Quest time offset</td><td> <input type="number" name="quest_time_offset" min="-60" max="60" value={Settings.questTimeOffset.toString}></input>
               </td></tr>
+              <tr>
+                <td>Current time</td>
+                <td id="time"></td>
+              </tr>
               <tr><td>
                 <input type="submit" value="Save settings"/>
               </td></tr>
@@ -197,6 +215,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
         </body>
         <script>
           updateStatus()
+          updateClock()
           window.onbeforeunload = closingCode;
         </script>
       </html>
