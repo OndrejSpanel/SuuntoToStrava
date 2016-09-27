@@ -1,6 +1,6 @@
 package net.suunto3rdparty
 
-import java.io.{File, FileInputStream}
+import java.io.{File, FileInputStream, FileOutputStream}
 import java.util.Properties
 
 import moveslink.MovesLinkUploader
@@ -20,6 +20,18 @@ object Settings {
   val questTimeOffset: Int = props.getProperty("questTimeOffset", "0").toInt
   val maxHR: Int = props.getProperty("maxHR", "240").toInt
 
+  def save(newMaxHR: Option[Int], newQuestTimeOffset: Option[Int]): Unit = {
+    newMaxHR.foreach { v =>
+      props.setProperty("maxHR", v.toString)
+    }
+    newQuestTimeOffset.foreach { v =>
+      props.setProperty("questTimeOffset", v.toString)
+    }
+    for (f <- managed(new FileOutputStream(file))) {
+      props.store(f, "SuuntoToStrava configuration")
+      Console.println("Settings saved")
+    }
+  }
 }
 
 
