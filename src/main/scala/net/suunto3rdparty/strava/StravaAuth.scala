@@ -1,4 +1,5 @@
-package net.suunto3rdparty.strava
+package net.suunto3rdparty
+package strava
 
 import java.awt.Desktop
 import java.io.IOException
@@ -17,6 +18,7 @@ object StravaAuth {
   private val callbackPath = "stravaAuth.html"
   private val statusPath = "status.xml"
   private val donePath = "done.xml"
+  private val saveSettings = "saveSettings"
   private val pollPeriod = 2000 // miliseconds
 
   private def paramPattern(param: String) = ("/.*\\?.*" + param + "=([^&\\?]*).*").r
@@ -39,7 +41,6 @@ object StravaAuth {
   private var reportResult: String = ""
   private var session: String = ""
 
-
   val timeoutThread = new Thread(new Runnable {
     override def run(): Unit = {
       @tailrec
@@ -58,12 +59,19 @@ object StravaAuth {
             if (reportResult.isEmpty) {
               println("  not finished yet, giving a chance to reconnect")
               pollUntilTerminated(true)
+            } else {
+              println("Finished, browser closed, terminating web server")
             }
           case Some(ServerDoneSent) =>
             println("Final status displayed.")
-          case Some(WindowClosedSent) =>
-            println("Browser window closed.")
             pollUntilTerminated(true)
+          case Some(WindowClosedSent) =>
+            if (reportResult.isEmpty) {
+              println("Browser window closed.")
+              pollUntilTerminated(true)
+            } else {
+              println("Browser window closed, all done, terminating web server.")
+            }
           case Some(ServerStatusSent) => //
             pollUntilTerminated()
         }
@@ -112,11 +120,7 @@ function updateStatus() {
         if (xmlhttp.status >= 200 && xmlhttp.status < 300) {
           var response = xmlhttp.responseXML.getElementsByTagName("html")[0];
           document.getElementById("myDiv").innerHTML = response.innerHTML;
-          if (xmlhttp.status == 202) {
-            updateStatus(); // schedule recursively another update
-          } else {
-            finished = true;
-          }
+          updateStatus(); // schedule recursively another update
         } else {
           finished = true;
           document.getElementById("myDiv").innerHTML = "<h3>Application not responding</h3>";
@@ -127,6 +131,25 @@ function updateStatus() {
   }, $pollPeriod)
 }
 
+function updateClock() {
+  var d = new Date();
+  document.getElementById("time").innerHTML = formatTime(d);
+  document.getElementById("timeQuest").innerHTML = currentQuestTime(d);
+  setTimeout(function () {
+    updateClock();
+  }, 1000);
+}
+
+function submitSettings(f) {
+  console.log(f);
+  var maxHR = f.elements["max_hr"].value;
+  var questOffset = f.elements["quest_time_offset"].value;
+  var pars = "max_hr=" + maxHR + "&quest_time_offset=" + questOffset;
+  var xmlhttp = ajax();
+  ajaxPost(xmlhttp, "./$saveSettings?state=$state&" + pars, true); // POST to prevent caching
+  return false;
+}
+
 function closingCode(){
   if (!finished) {
     var xmlhttp = ajax();
@@ -134,6 +157,22 @@ function closingCode(){
     return null;
   }
 }
+
+function formatTime(d) {
+  return d.toLocaleTimeString('en-US', {hour12: false});
+  //var n = d.toLocaleTimeString();
+}
+
+function currentTime() {
+  var d = new Date();
+  return formatTime(d);
+}
+
+function currentQuestTime(d) {
+  var offset = parseInt(document.getElementById("quest_time_offset").value);
+  return formatTime(new Date(d.getTime() + 1000*offset));
+}
+
 
 function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** boolean */ async) {
   xmlhttp.open("POST", request, async); // POST to prevent caching
@@ -143,6 +182,36 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 }
 
 """
+
+      def displaySettings: Elem = {
+        <div id="settings">
+          <h3>Settings:</h3>
+          <form onSubmit="return submitSettings(this)">
+            <table>
+              <tr><td>
+                Max HR</td><td><input type="number" name="max_hr" min="100" max="260" value={Settings.maxHR.toString}></input>
+              </td></tr>
+              <tr><td>
+                Quest time offset</td><td> <input type="number" id="quest_time_offset" name="quest_time_offset" min="-60" max="60" value={Settings.questTimeOffset.toString}></input>
+              </td>
+                <td>Adjust up or down so that Quest time below matches the time on your watch</td>
+              </tr>
+
+              <tr>
+                <td>Current time</td>
+                <td id="time"></td>
+              </tr>
+              <tr>
+                <td>Quest time</td>
+                <td><b id="timeQuest"></b></td>
+              </tr>
+              <tr><td>
+                <input type="submit" value="Save settings"/>
+              </td></tr>
+            </table>
+          </form>
+        </div>
+      }
 
       val responseXml = <html>
         <head>
@@ -156,6 +225,8 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
           <h1>Suunto To Strava Authenticated</h1>
           <p>Suunto To Strava automated upload application authenticated to Strava</p>
 
+          {displaySettings}
+
           <div id="myDiv">
             <h3>Starting processing...</h3>
           </div>
@@ -163,6 +234,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
         </body>
         <script>
           updateStatus()
+          updateClock()
           window.onbeforeunload = closingCode;
         </script>
       </html>
@@ -212,6 +284,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 
   }
   object StatusHandler extends HttpHandlerHelper {
+
     override def handle(httpExchange: HttpExchange): Unit = {
       val requestURL = httpExchange.getRequestURI.toASCIIString
       println(requestURL)
@@ -236,7 +309,9 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
           sendResponse(200, httpExchange, response)
           server.foreach(_.events.put(ServerDoneSent))
         } else {
-          val response = <html><h3> {reportProgress} </h3> </html>
+          val response = <html>
+            <h3> {reportProgress} </h3>
+          </html>
           sendResponse(202, httpExchange, response)
           server.foreach(_.events.put(ServerStatusSent))
         }
@@ -261,6 +336,35 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
         server.foreach(_.events.put(WindowClosedSent))
       }
       respondFailure(t, "Session closed")
+    }
+  }
+
+  object SaveSettingsHandler extends HttpHandlerHelper {
+    override def handle(t: HttpExchange): Unit = {
+      val requestURL = t.getRequestURI.toASCIIString
+      println(requestURL)
+      val state = requestURL match {
+        case statePattern(s) => s
+        case _ => ""
+      }
+      if (session==state) {
+        val maxHRPattern = paramPattern("max_hr")
+        val questOffsetPattern = paramPattern("quest_time_offset")
+        val maxHR = requestURL match {
+          case maxHRPattern(s) => Some(s.toInt)
+          case _ => None
+        }
+        val questOffset = requestURL match {
+          case questOffsetPattern(s) => Some(s.toInt)
+          case _ => None
+        }
+
+        Settings.save(maxHR, questOffset)
+
+        sendResponse(200, t, <html><title>OK</title></html>)
+      } else {
+        respondFailure(t, "Session closed")
+      }
     }
   }
 
@@ -305,6 +409,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
     server.createContext(s"/$callbackPath", AuthHandler)
     server.createContext(s"/$statusPath", StatusHandler)
     server.createContext(s"/$donePath", DoneHandler)
+    server.createContext(s"/$saveSettings", SaveSettingsHandler)
 
     server.setExecutor(ex) // creates a default executor
     server.start()
