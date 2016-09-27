@@ -87,7 +87,7 @@ object StravaAuth {
     protected def respondAuthSuccess(t: HttpExchange, state: String): Unit = {
       val scriptText =
       //language=JavaScript
-        s"""var finished = false
+        s"""var finished = false;
 
 /**
  * @returns {XMLHttpRequest}
@@ -105,7 +105,7 @@ function /** XMLHttpRequest */ ajax() {
 
 function updateStatus() {
   setTimeout(function () {
-    var xmlhttp = ajax()
+    var xmlhttp = ajax();
     // the callback function to be callled when AJAX request comes back
     xmlhttp.onreadystatechange = function () {
       if (xmlhttp.readyState == 4) {
@@ -113,7 +113,7 @@ function updateStatus() {
           var response = xmlhttp.responseXML.getElementsByTagName("html")[0];
           document.getElementById("myDiv").innerHTML = response.innerHTML;
           if (xmlhttp.status == 202) {
-            updateStatus() // schedule recursively another update
+            updateStatus(); // schedule recursively another update
           } else {
             finished = true;
           }
@@ -129,7 +129,7 @@ function updateStatus() {
 
 function closingCode(){
   if (!finished) {
-    var xmlhttp = ajax()
+    var xmlhttp = ajax();
     ajaxPost(xmlhttp, "./$donePath?state=$state", false); // sync to make sure request is send before the window closes
     return null;
   }
