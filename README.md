@@ -45,6 +45,10 @@ This utility allows you to set the Quest time, so that the error is compensated 
 Note: the settings does not apply to the activities being uploaded. If you want to change or review the settings, run
 the jar file before connecting your Suunto devices. 
 
+## Heart rate sensor data validation
+
+The utility detects invalid heart rate data. Samples above the maximum heart rate are removed.  
+
 ## Laps and activity boundaries detection
 
 The utility uses laps from both GPS Pod and watches. It detects activity boundaries smartly - the primary source of
