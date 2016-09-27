@@ -302,7 +302,10 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
               <p>Proceed to:
                 <br/>
                 <a href="https://www.strava.com">Strava</a> <br/>
-                <a href="https://www.strava.com/athlete/training">My Activities</a>
+                <a href="https://www.strava.com/athlete/training">My Activities</a><br/>
+                <form action={s"retry?state=$session"}>
+                <input type="submit" value="Delete and upload again"/>
+                </form>
               </p>
             </html>
 
