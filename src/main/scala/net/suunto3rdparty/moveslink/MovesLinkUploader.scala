@@ -17,32 +17,19 @@ object MovesLinkUploader {
 
   private val log = Logger.getLogger(getClass)
 
-  private val getDataFolder: File = {
+  val getDataFolder: File = {
     val suuntoHome = Util.getSuuntoHome
     new File(suuntoHome, "Moveslink")
   }
 
   private val uploadedFolderName = "/uploadedToStrava"
 
-  private val settingsFile = "suuntoToStrava.cfg"
+  private val settings = Settings
 
   private val uploadedFolder = new File(getDataFolder, uploadedFolderName)
 
   def uploadXMLFiles(after: Option[ZonedDateTime], api: StravaAPI, alreadyUploaded: Set[String], index: Set[Move], progress: (Int, Int) => Unit): Int = {
 
-    object Settings {
-      def load: Settings = {
-        val file = new File(getDataFolder, settingsFile)
-        var props: Properties = new Properties()
-        for (f <- managed(new FileInputStream(file))) {
-          props = new Properties()
-          props.load(f)
-        }
-        new Settings(props)
-      }
-    }
-
-    val settings = Settings.load
 
     try {
       uploadedFolder.mkdir()
@@ -56,7 +43,7 @@ object MovesLinkUploader {
     } yield {
       log.info("Analyzing " + fileName)
       val file = new File(getDataFolder, fileName)
-      val moves = XMLParser.parse(fileName, file, settings)
+      val moves = XMLParser.parse(fileName, file)
       val validMoves = moves.filter(_.streamGet[DataStreamHRWithDist].nonEmpty)
 
       val validMovesAfter = validMoves.filter(_.startsAfter(after))

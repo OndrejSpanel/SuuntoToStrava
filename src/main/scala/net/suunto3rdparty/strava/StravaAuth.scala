@@ -1,4 +1,5 @@
-package net.suunto3rdparty.strava
+package net.suunto3rdparty
+package strava
 
 import java.awt.Desktop
 import java.io.IOException
@@ -39,6 +40,15 @@ object StravaAuth {
   private var reportResult: String = ""
   private var session: String = ""
 
+  def displaySettings: Elem = {
+    <div id="settings">
+      <h3>Settings:</h3>
+      <ul>
+        <li>maxHR = {Settings.maxHR}</li>
+        <li>questTimeOffset = {Settings.questTimeOffset}</li>
+      </ul>
+    </div>
+  }
 
   val timeoutThread = new Thread(new Runnable {
     override def run(): Unit = {
@@ -159,6 +169,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
           <div id="myDiv">
             <h3>Starting processing...</h3>
           </div>
+          {displaySettings}
 
         </body>
         <script>
@@ -212,6 +223,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 
   }
   object StatusHandler extends HttpHandlerHelper {
+
     override def handle(httpExchange: HttpExchange): Unit = {
       val requestURL = httpExchange.getRequestURI.toASCIIString
       println(requestURL)
@@ -236,7 +248,9 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
           sendResponse(200, httpExchange, response)
           server.foreach(_.events.put(ServerDoneSent))
         } else {
-          val response = <html><h3> {reportProgress} </h3> </html>
+          val response = <html>
+            <h3> {reportProgress} </h3>
+          </html>
           sendResponse(202, httpExchange, response)
           server.foreach(_.events.put(ServerStatusSent))
         }
