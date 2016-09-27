@@ -132,7 +132,9 @@ function updateStatus() {
 }
 
 function updateClock() {
-  document.getElementById("time").innerHTML = currentTime();
+  var d = new Date();
+  document.getElementById("time").innerHTML = formatTime(d);
+  document.getElementById("timeQuest").innerHTML = currentQuestTime(d);
   setTimeout(function () {
     updateClock();
   }, 1000);
@@ -156,12 +158,21 @@ function closingCode(){
   }
 }
 
+function formatTime(d) {
+  return d.toLocaleTimeString('en-US', {hour12: false});
+  //var n = d.toLocaleTimeString();
+}
+
 function currentTime() {
   var d = new Date();
-  var n = d.toLocaleTimeString('en-US', {hour12: false});
-  //var n = d.toLocaleTimeString();
-  return n;
+  return formatTime(d);
 }
+
+function currentQuestTime(d) {
+  var offset = parseInt(document.getElementById("quest_time_offset").value);
+  return formatTime(new Date(d.getTime() + 1000*offset));
+}
+
 
 function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** boolean */ async) {
   xmlhttp.open("POST", request, async); // POST to prevent caching
@@ -181,11 +192,15 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
                 Max HR</td><td><input type="number" name="max_hr" min="100" max="260" value={Settings.maxHR.toString}></input>
               </td></tr>
               <tr><td>
-                Quest time offset</td><td> <input type="number" name="quest_time_offset" min="-60" max="60" value={Settings.questTimeOffset.toString}></input>
+                Quest time offset</td><td> <input type="number" id="quest_time_offset" name="quest_time_offset" min="-60" max="60" value={Settings.questTimeOffset.toString}></input>
               </td></tr>
               <tr>
                 <td>Current time</td>
                 <td id="time"></td>
+              </tr>
+              <tr>
+                <td>Quest time</td>
+                <td id="timeQuest"></td>
               </tr>
               <tr><td>
                 <input type="submit" value="Save settings"/>
