@@ -193,14 +193,17 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
               </td></tr>
               <tr><td>
                 Quest time offset</td><td> <input type="number" id="quest_time_offset" name="quest_time_offset" min="-60" max="60" value={Settings.questTimeOffset.toString}></input>
-              </td></tr>
+              </td>
+                <td>Adjust up or down so that Quest time below matches the time on your watch</td>
+              </tr>
+
               <tr>
                 <td>Current time</td>
                 <td id="time"></td>
               </tr>
               <tr>
                 <td>Quest time</td>
-                <td id="timeQuest"></td>
+                <td><b id="timeQuest"></b></td>
               </tr>
               <tr><td>
                 <input type="submit" value="Save settings"/>
@@ -222,10 +225,11 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
           <h1>Suunto To Strava Authenticated</h1>
           <p>Suunto To Strava automated upload application authenticated to Strava</p>
 
+          {displaySettings}
+
           <div id="myDiv">
             <h3>Starting processing...</h3>
           </div>
-          {displaySettings}
 
         </body>
         <script>
