@@ -34,6 +34,17 @@ The utility uses local copies of data uploaded to Movescount by Moveslink softwa
 and sends them to Strava. When using this utility you should disable Movescount sending data to Strava on its own, 
 or remove Strava integration from Movescount completely.
 
+## Quest time offset
+
+The utility solves one problem which seems to be completely ignored by Suunto Movescount merge. The moves download from
+Quest watches are stamped by the time provided by the watches. This time is never accurate, as it is impossible to set
+seconds on the Quest, only hours and minutes. As a result, the timestamps are off, sometimes even 30 seconds or more.
+
+This utility allows you to set the Quest time, so that the error is compensated for when merging.
+
+Note: the settings does not apply to the activities being uploaded. If you want to change or review the settings, run
+the jar file before connecting your Suunto devices. 
+
 ## Laps and activity boundaries detection
 
 The utility uses laps from both GPS Pod and watches. It detects activity boundaries smartly - the primary source of
