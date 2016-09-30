@@ -7,6 +7,8 @@ import java.net.{InetSocketAddress, URL}
 import java.util.concurrent._
 
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
+import net.suunto3rdparty.moveslink.MovesLinkUploader
+import net.suunto3rdparty.moveslink.MovesLinkUploader.UploadId
 
 import scala.annotation.tailrec
 import scala.concurrent.duration.Duration
@@ -18,7 +20,9 @@ object StravaAuth {
   private val callbackPath = "stravaAuth.html"
   private val statusPath = "status.xml"
   private val donePath = "done.xml"
-  private val saveSettings = "saveSettings"
+  private val saveSettingsPath = "saveSettings"
+  private val deletePath = "retry"
+
   private val pollPeriod = 2000 // miliseconds
 
   private def paramPattern(param: String) = ("/.*\\?.*" + param + "=([^&\\?]*).*").r
@@ -38,7 +42,7 @@ object StravaAuth {
 
   private var reportProgress: String = "Reading files..."
 
-  private var uploadedIds = List[Long]() // note: upload ids, not activity ids
+  private var uploadedIds = List[UploadId]() // note: upload ids, not activity ids
 
   private var reportResult: String = ""
   private var session: String = ""
@@ -148,7 +152,13 @@ function submitSettings(f) {
   var questOffset = f.elements["quest_time_offset"].value;
   var pars = "max_hr=" + maxHR + "&quest_time_offset=" + questOffset;
   var xmlhttp = ajax();
-  ajaxPost(xmlhttp, "./$saveSettings?state=$state&" + pars, true); // POST to prevent caching
+  ajaxPost(xmlhttp, "./$saveSettingsPath?state=$state&" + pars, true); // POST to prevent caching
+  return false;
+}
+
+function reupload() {
+  var xmlhttp = ajax();
+  ajaxPost(xmlhttp, "./$deletePath?state=$state", true); // POST to prevent caching
   return false;
 }
 
@@ -315,7 +325,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
             }
           }
 
-          val upload = getActivitiesIds(uploadedIds, Nil) :+ 999L // TODO: DEBUG: remove
+          val upload = getActivitiesIds(uploadedIds.map(_.id), Nil) :+ 999L // TODO: DEBUG: remove
           val response =
             <html>
               <h3>
@@ -327,7 +337,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
                 <a href="https://www.strava.com/athlete/training">My Activities</a><br/>
                 {
                   upload.headOption.toList.map { _ =>
-                    <form action={s"retry?state=$session"}>
+                    <form onSubmit="return reupload()">
                       <input type="submit" value="Delete and upload again"/>
                     </form>
                   }
@@ -406,6 +416,33 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
     }
   }
 
+  object DeleteHandler extends HttpHandlerHelper {
+    override def handle(t: HttpExchange): Unit = {
+      val requestURL = t.getRequestURI.toASCIIString
+      println(requestURL)
+      val state = requestURL match {
+        case statePattern(s) => s
+        case _ => ""
+      }
+      if (session==state) {
+        uploadedIds.foreach { id =>
+          id.filenames.foreach(MovesLinkUploader.unmarkUploadedFile)
+        }
+
+//        val h = t.getResponseHeaders
+//        h.add("Location", "http://localhost:8080/")
+//        t.sendResponseHeaders(302, 0)
+
+        val responseXml = <html>
+          <title>Deleted</title> <body>All files deleted.</body>
+        </html>
+        sendResponse(200, t, responseXml)
+      } else {
+        respondFailure(t, "Session closed")
+      }
+    }
+  }
+
   object AuthHandler extends HttpHandlerHelper {
 
     def handle(t: HttpExchange): Unit = {
@@ -447,7 +484,8 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
     server.createContext(s"/$callbackPath", AuthHandler)
     server.createContext(s"/$statusPath", StatusHandler)
     server.createContext(s"/$donePath", DoneHandler)
-    server.createContext(s"/$saveSettings", SaveSettingsHandler)
+    server.createContext(s"/$saveSettingsPath", SaveSettingsHandler)
+    server.createContext(s"/$deletePath", DeleteHandler)
 
     server.setExecutor(ex) // creates a default executor
     server.start()
@@ -481,7 +519,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
     reportProgress = status
   }
 
-  def stop(status: String, uploaded: List[Long]): Unit = {
+  def stop(status: String, uploaded: List[UploadId]): Unit = {
     reportResult = status
     uploadedIds = uploaded
     server.foreach { s =>
