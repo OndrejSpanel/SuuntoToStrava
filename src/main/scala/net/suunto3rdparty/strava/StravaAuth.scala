@@ -38,7 +38,7 @@ object StravaAuth {
 
   private var reportProgress: String = "Reading files..."
 
-  private var uploadedActivities = List[Long]()
+  private var uploadedIds = List[Long]() // note: upload ids, not activity ids
 
   private var reportResult: String = ""
   private var session: String = ""
@@ -296,6 +296,15 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
       }
       if (session==state) {
         if (reportResult.nonEmpty) {
+
+          //noinspection FieldFromDelayedInit
+          val uploadedActivitiesPoll = uploadedIds.map(Main.api.activityIdFromUploadId)
+          // TODO: handle pending
+
+          val uploadedActivities = uploadedActivitiesPoll.collect {
+            case Left(l) => l
+          }
+
           val upload = uploadedActivities :+ 999L
           val response =
             <html>
@@ -458,9 +467,9 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
     reportProgress = status
   }
 
-  def stop(status: String, uploadedIds: List[Long]): Unit = {
+  def stop(status: String, uploaded: List[Long]): Unit = {
     reportResult = status
-    uploadedActivities = uploadedIds
+    uploadedIds = uploaded
     server.foreach { s =>
       // based on http://stackoverflow.com/a/36129257/16673
       timeoutThread.join()

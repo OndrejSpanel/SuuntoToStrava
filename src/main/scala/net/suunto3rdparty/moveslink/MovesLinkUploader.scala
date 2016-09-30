@@ -158,8 +158,8 @@ object MovesLinkUploader {
       } else {
         // upload only non-trivial results
         if (!move.isAlmostEmpty(90)) {
-          api.upload(move)
-          uploaded = 1L +: uploaded
+          val uploadId = api.upload(move)
+          uploaded = uploadId.toList ++ uploaded
         }
 
         markUploaded(move)
