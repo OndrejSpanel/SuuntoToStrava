@@ -16,7 +16,7 @@ object Main extends App {
 
     log.info("Reading MovesLink2 ...")
     if (!MovesLink2Uploader.checkIfEnvOkay || !MovesLinkUploader.checkIfEnvOkay) {
-      StravaAuth.stop("Moveslink not installed correctly")
+      StravaAuth.stop("Moveslink not installed correctly", Nil)
       throw new UnsupportedOperationException()
     }
     try {
@@ -30,13 +30,13 @@ object Main extends App {
       log.info("Reading MovesLink ...")
       val uploaded = MovesLinkUploader.uploadXMLFiles(after, api, alreadyUploaded, index, (num, total) => StravaAuth.progress(s"Processing $num of $total files"))
       log.info("Upload MovesLink done.")
-      StravaAuth.stop(s"Completed, moves uploaded: $uploaded ")
+      StravaAuth.stop(s"Completed, moves uploaded: ${uploaded.size}", uploaded)
     } catch {
       case x: Exception =>
-        StravaAuth.stop(s"Completed with exception ${x.getMessage}")
+        StravaAuth.stop(s"Completed with exception ${x.getMessage}", Nil)
         throw x
     }
   } else {
-    StravaAuth.stop("Canceled")
+    StravaAuth.stop("Canceled", Nil)
   }
 }

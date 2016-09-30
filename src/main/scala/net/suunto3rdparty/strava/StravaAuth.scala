@@ -38,6 +38,8 @@ object StravaAuth {
 
   private var reportProgress: String = "Reading files..."
 
+  private var uploadedActivities = List[Long]()
+
   private var reportResult: String = ""
   private var session: String = ""
 
@@ -303,9 +305,13 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
                 <br/>
                 <a href="https://www.strava.com">Strava</a> <br/>
                 <a href="https://www.strava.com/athlete/training">My Activities</a><br/>
-                <form action={s"retry?state=$session"}>
-                <input type="submit" value="Delete and upload again"/>
-                </form>
+                {
+                  uploadedActivities.headOption.toList.map { _ =>
+                    <form action={s"retry?state=$session"}>
+                      <input type="submit" value="Delete and upload again"/>
+                    </form>
+                  }
+                }
               </p>
             </html>
 
@@ -446,8 +452,9 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
     reportProgress = status
   }
 
-  def stop(status: String): Unit = {
+  def stop(status: String, uploadedIds: List[Long]): Unit = {
     reportResult = status
+    uploadedActivities = uploadedIds
     server.foreach { s =>
       // based on http://stackoverflow.com/a/36129257/16673
       timeoutThread.join()

@@ -28,7 +28,7 @@ object MovesLinkUploader {
 
   private val uploadedFolder = new File(getDataFolder, uploadedFolderName)
 
-  def uploadXMLFiles(after: Option[ZonedDateTime], api: StravaAPI, alreadyUploaded: Set[String], index: Set[Move], progress: (Int, Int) => Unit): Int = {
+  def uploadXMLFiles(after: Option[ZonedDateTime], api: StravaAPI, alreadyUploaded: Set[String], index: Set[Move], progress: (Int, Int) => Unit): List[Long] = {
 
 
     try {
@@ -145,7 +145,7 @@ object MovesLinkUploader {
 
     val toUpload = processTimelines(timelineGPS, timelineHRAdjusted, Nil).reverse
 
-    var uploaded = 0
+    var uploaded = List[Long]()
     var processed = 0
     val total = toUpload.size
 
@@ -154,12 +154,12 @@ object MovesLinkUploader {
 
       if (fileTest) {
         fit.Export(move)
-        uploaded += 1
+        uploaded = 0L +: uploaded
       } else {
         // upload only non-trivial results
         if (!move.isAlmostEmpty(90)) {
           api.upload(move)
-          uploaded += 1
+          uploaded = 1L +: uploaded
         }
 
         markUploaded(move)
