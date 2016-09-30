@@ -296,16 +296,26 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
       }
       if (session==state) {
         if (reportResult.nonEmpty) {
+          def getActivitiesIds(checkUploadIds: List[Long], done: List[Long]): List[Long] = {
+            //noinspection FieldFromDelayedInit
+            val pollResults = checkUploadIds.map(id => id -> Main.api.activityIdFromUploadId(id))
 
-          //noinspection FieldFromDelayedInit
-          val uploadedActivitiesPoll = uploadedIds.map(Main.api.activityIdFromUploadId)
-          // TODO: handle pending
+            val retryActivities = pollResults.collect {
+              case (id, Right(true)) => id
+            }
 
-          val uploadedActivities = uploadedActivitiesPoll.collect {
-            case Left(l) => l
+            val doneActivityIds = pollResults.collect {
+              case (_, Left(l)) => l
+            }
+
+            if (checkUploadIds.isEmpty) done ++ doneActivityIds
+            else {
+              Thread.sleep(1000) // polling is recommended at most once per second
+              getActivitiesIds(retryActivities, done ++ doneActivityIds)
+            }
           }
 
-          val upload = uploadedActivities :+ 999L // TODO: DEBUG: remove
+          val upload = getActivitiesIds(uploadedIds, Nil) :+ 999L // TODO: DEBUG: remove
           val response =
             <html>
               <h3>
@@ -322,11 +332,15 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
                     </form>
                   }
                 }
+                <table>
                 {
                   upload.map { moveId =>
-                    <a href={s"https://www.strava.com/activities/$moveId"}>Move {moveId}</a>
+                    <tr><td>
+                      <a href={s"https://www.strava.com/activities/$moveId"}>Move {moveId}</a>
+                    </td></tr>
                   }
                 }
+                </table>
               </p>
             </html>
 

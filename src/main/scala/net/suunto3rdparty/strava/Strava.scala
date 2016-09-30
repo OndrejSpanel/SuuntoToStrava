@@ -157,23 +157,27 @@ class StravaAPI(appId: Int, clientSecret: String, code: Option[String]) {
         val resultString = content.asString()
         val resultJson = JSON.parseFull(resultString)
 
-        val activityId = Option(resultJson).flatMap {
+        val activityId = Option(resultJson).map {
           case M(map) =>
-            map.get("activity_id") match {
-              case D(actId) =>
-                println(s"  activity id ${id.toLong}")
-                Some(id.toLong)
+            map.get("status") match {
+              case S(status) if status == "Your activity is still being processed." =>
+                Right(true)
               case _ =>
-                None
+                map.get("activity_id") match {
+                  case D(actId) if actId.toLong != 0 =>
+                    Left(actId.toLong)
+                  case _ =>
+                    Right(false)
+                }
             }
-          case _ => None
+          case _ => Right(false)
         }
         activityId
       }
       try {
-        Left(a.get)
+        a.get
       } catch {
-        case x: Exception => Right(false)
+        case x: NoSuchElementException => Right(false)
       }
 
     } catch {
