@@ -296,6 +296,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
       }
       if (session==state) {
         if (reportResult.nonEmpty) {
+          val upload = uploadedActivities :+ 999L
           val response =
             <html>
               <h3>
@@ -306,10 +307,15 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
                 <a href="https://www.strava.com">Strava</a> <br/>
                 <a href="https://www.strava.com/athlete/training">My Activities</a><br/>
                 {
-                  uploadedActivities.headOption.toList.map { _ =>
+                  upload.headOption.toList.map { _ =>
                     <form action={s"retry?state=$session"}>
                       <input type="submit" value="Delete and upload again"/>
                     </form>
+                  }
+                }
+                {
+                  upload.map { moveId =>
+                    <a href={s"https://www.strava.com/activities/$moveId"}>Move {moveId}</a>
                   }
                 }
               </p>
