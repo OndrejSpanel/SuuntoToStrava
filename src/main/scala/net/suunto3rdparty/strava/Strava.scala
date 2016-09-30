@@ -133,6 +133,17 @@ class StravaAPI(appId: Int, clientSecret: String, code: Option[String]) {
     }
   }
 
+  def deleteActivity(id: Long): Unit = {
+    authString.foreach { authString =>
+      val request = Request.Delete(buildURI(s"activities/$id"))
+        .useExpectContinue()
+        .addHeader("Authorization", authString)
+        .addHeader("Accept", "*/*")
+
+      request.execute()
+    }
+  }
+
   def uploadRawFileGz(moveBytesOriginal: Array[Byte], fileType: String): Option[Long] = {
 
     val baos = new ByteArrayOutputStream()

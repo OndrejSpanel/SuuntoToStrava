@@ -9,6 +9,7 @@ import java.util.concurrent._
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import net.suunto3rdparty.moveslink.MovesLinkUploader
 import net.suunto3rdparty.moveslink.MovesLinkUploader.UploadId
+import org.apache.http.client.fluent.Request
 
 import scala.annotation.tailrec
 import scala.concurrent.duration.Duration
@@ -42,7 +43,7 @@ object StravaAuth {
 
   private var reportProgress: String = "Reading files..."
 
-  private var uploadedIds = List[UploadId]() // note: upload ids, not activity ids
+  private var uploadedIds = List[UploadId]()
 
   private var reportResult: String = ""
   private var session: String = ""
@@ -306,26 +307,8 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
       }
       if (session==state) {
         if (reportResult.nonEmpty) {
-          def getActivitiesIds(checkUploadIds: List[Long], done: List[Long]): List[Long] = {
-            //noinspection FieldFromDelayedInit
-            val pollResults = checkUploadIds.map(id => id -> Main.api.activityIdFromUploadId(id))
 
-            val retryActivities = pollResults.collect {
-              case (id, Right(true)) => id
-            }
-
-            val doneActivityIds = pollResults.collect {
-              case (_, Left(l)) => l
-            }
-
-            if (checkUploadIds.isEmpty) done ++ doneActivityIds
-            else {
-              Thread.sleep(1000) // polling is recommended at most once per second
-              getActivitiesIds(retryActivities, done ++ doneActivityIds)
-            }
-          }
-
-          val upload = getActivitiesIds(uploadedIds.map(_.id), Nil) :+ 999L // TODO: DEBUG: remove
+          val upload = uploadedIds.map(_.id)
           val response =
             <html>
               <h3>
@@ -427,11 +410,10 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
       if (session==state) {
         uploadedIds.foreach { id =>
           id.filenames.foreach(MovesLinkUploader.unmarkUploadedFile)
-        }
 
-//        val h = t.getResponseHeaders
-//        h.add("Location", "http://localhost:8080/")
-//        t.sendResponseHeaders(302, 0)
+          //noinspection FieldFromDelayedInit
+          Main.api.deleteActivity(id.id)
+        }
 
         val responseXml = <html>
           <title>Deleted</title> <body>All files deleted.</body>
@@ -521,7 +503,10 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 
   def stop(status: String, uploaded: List[UploadId]): Unit = {
     reportResult = status
+
     uploadedIds = uploaded
+
+
     server.foreach { s =>
       // based on http://stackoverflow.com/a/36129257/16673
       timeoutThread.join()

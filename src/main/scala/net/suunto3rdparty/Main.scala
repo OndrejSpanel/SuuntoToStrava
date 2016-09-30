@@ -10,6 +10,26 @@ object Main extends App {
 
   val api = new StravaAPIThisApp
 
+  def getActivitiesIds(checkUploadIds: List[Long], done: Map[Long, Long]): Map[Long, Long] = {
+    //noinspection FieldFromDelayedInit
+    val pollResults = checkUploadIds.map(id => id -> api.activityIdFromUploadId(id))
+
+    val retryActivities = pollResults.collect {
+      case (id, Right(true)) => id
+    }
+
+    val doneActivityIds = pollResults.collect {
+      case (id, Left(l)) => id -> l
+    }
+
+    if (checkUploadIds.isEmpty) done ++ doneActivityIds
+    else {
+      Thread.sleep(1000) // polling is recommended at most once per second
+      getActivitiesIds(retryActivities, done ++ doneActivityIds)
+    }
+  }
+
+
   if (api.authString.nonEmpty) {
 
     val after = api.mostRecentActivityTime
@@ -30,7 +50,14 @@ object Main extends App {
       log.info("Reading MovesLink ...")
       val uploaded = MovesLinkUploader.uploadXMLFiles(after, api, alreadyUploaded, index, (num, total) => StravaAuth.progress(s"Processing $num of $total files"))
       log.info("Upload MovesLink done.")
-      StravaAuth.stop(s"Completed, moves uploaded: ${uploaded.size}", uploaded)
+
+      val actIds = getActivitiesIds(uploaded.map(_.id), Map())
+
+      val uploadedActIds = uploaded.map { uid =>
+        uid.copy(id = actIds(uid.id))
+      }
+
+      StravaAuth.stop(s"Completed, moves uploaded: ${uploaded.size}", uploadedActIds)
     } catch {
       case x: Exception =>
         StravaAuth.stop(s"Completed with exception ${x.getMessage}", Nil)
