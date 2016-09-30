@@ -305,7 +305,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
             case Left(l) => l
           }
 
-          val upload = uploadedActivities :+ 999L
+          val upload = uploadedActivities :+ 999L // TODO: DEBUG: remove
           val response =
             <html>
               <h3>

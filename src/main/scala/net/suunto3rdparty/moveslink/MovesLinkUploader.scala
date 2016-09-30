@@ -179,8 +179,9 @@ object MovesLinkUploader {
   def markUploadedFile(filename: String): Unit = {
     try {
       if (!fileTest) {
-        val markFile = new File(uploadedFolder, "/" + filename)
-        markFile.createNewFile()
+        // TODO: DEBUG: reenable
+        //val markFile = new File(uploadedFolder, "/" + filename)
+        //markFile.createNewFile()
       }
     } catch {
       case _: IOException =>
