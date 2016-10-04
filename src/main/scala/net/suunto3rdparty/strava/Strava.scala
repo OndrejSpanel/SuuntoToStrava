@@ -192,6 +192,8 @@ class StravaAPI(appId: Int, clientSecret: String, code: Option[String]) {
       }
 
     } catch {
+      case ex: HttpResponseException if ex.getStatusCode == 404 =>
+        Right(false)
       case ex: Exception =>
         ex.printStackTrace()
         Right(false)

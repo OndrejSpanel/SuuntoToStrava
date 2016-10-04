@@ -5,6 +5,8 @@ import moveslink2.MovesLink2Uploader
 import strava.{StravaAPIThisApp, StravaAuth}
 import org.apache.log4j.Logger
 
+import scala.util.Try
+
 object Main extends App {
   val log = Logger.getLogger(classOf[App])
 
@@ -22,7 +24,7 @@ object Main extends App {
       case (id, Left(l)) => id -> l
     }
 
-    if (checkUploadIds.isEmpty) done ++ doneActivityIds
+    if (retryActivities.isEmpty) done ++ doneActivityIds
     else {
       Thread.sleep(1000) // polling is recommended at most once per second
       getActivitiesIds(retryActivities, done ++ doneActivityIds)
@@ -32,7 +34,7 @@ object Main extends App {
 
   if (api.authString.nonEmpty) {
 
-    val after = api.mostRecentActivityTime
+    val after = if (MovesLinkUploader.fileTest) None else api.mostRecentActivityTime
 
     log.info("Reading MovesLink2 ...")
     if (!MovesLink2Uploader.checkIfEnvOkay || !MovesLinkUploader.checkIfEnvOkay) {
@@ -53,8 +55,10 @@ object Main extends App {
 
       val actIds = getActivitiesIds(uploaded.map(_.id), Map())
 
-      val uploadedActIds = uploaded.map { uid =>
-        uid.copy(id = actIds(uid.id))
+      val uploadedActIds = uploaded.collect {
+        Function.unlift { uid =>
+          Try(uid.copy(id = actIds(uid.id))).toOption
+        }
       }
 
       StravaAuth.stop(s"Completed, moves uploaded: ${uploaded.size}", uploadedActIds)
