@@ -131,6 +131,7 @@ object Export {
           myMsg.setTimestamp(toTimestamp(time))
           myMsg.setPositionLong((gps.longitude * longLatScale).toInt)
           myMsg.setPositionLat((gps.latitude * longLatScale).toInt)
+          gps.elevation.foreach(e => myMsg.setAltitude(e.toFloat))
           Some(myMsg)
         case hr: HRPoint =>
           val myMsg = new RecordMesg()
