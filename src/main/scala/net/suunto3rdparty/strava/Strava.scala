@@ -12,7 +12,7 @@ import org.apache.http.entity.mime.MultipartEntityBuilder
 import resource._
 import Util._
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 import scala.util.parsing.json.{JSON, JSONArray, JSONObject}
 
 case class StravaAPIParams(appId: Int, clientSecret: String, code: Option[String])
@@ -121,7 +121,7 @@ class StravaAPI(appId: Int, clientSecret: String, code: Option[String]) {
   /*
     * @return upload id (use to check status with uploads/:id)
     * */
-  def upload(move: Move): Option[Int] = {
+  def upload(move: Move): Option[Long] = {
     val fitFormat = true
     if (fitFormat) {
       val moveBytes = fit.Export.toBuffer(move)
@@ -133,7 +133,18 @@ class StravaAPI(appId: Int, clientSecret: String, code: Option[String]) {
     }
   }
 
-  def uploadRawFileGz(moveBytesOriginal: Array[Byte], fileType: String): Option[Int] = {
+  def deleteActivity(id: Long): Unit = {
+    authString.foreach { authString =>
+      val request = Request.Delete(buildURI(s"activities/$id"))
+        .useExpectContinue()
+        .addHeader("Authorization", authString)
+        .addHeader("Accept", "*/*")
+
+      request.execute()
+    }
+  }
+
+  def uploadRawFileGz(moveBytesOriginal: Array[Byte], fileType: String): Option[Long] = {
 
     val baos = new ByteArrayOutputStream()
     managed(new GZIPOutputStream(baos)).foreach(_.write(moveBytesOriginal))
@@ -141,7 +152,56 @@ class StravaAPI(appId: Int, clientSecret: String, code: Option[String]) {
     uploadRawFile(baos.toByteArray, fileType)
   }
 
-  def uploadRawFile(sendBytes: Array[Byte], fileType: String): Option[Int] = {
+  /**
+  * @return Either[id, pending] pending is true if the result is not definitive yet
+    */
+  def activityIdFromUploadId(id: Long): Either[Long, Boolean] = {
+    try {
+      val a = authString.flatMap { authString =>
+        val request = Request.Get(buildURI(s"uploads/$id"))
+          .useExpectContinue()
+          .addHeader("Authorization", authString)
+          .addHeader("Accept", "*/*")
+
+        val response = request.execute()
+        val content = response.returnContent()
+        val resultString = content.asString()
+        val resultJson = JSON.parseFull(resultString)
+
+        val activityId = Option(resultJson).map {
+          case M(map) =>
+            map.get("status") match {
+              case S(status) if status == "Your activity is still being processed." =>
+                Right(true)
+              case _ =>
+                map.get("activity_id") match {
+                  case D(actId) if actId.toLong != 0 =>
+                    Left(actId.toLong)
+                  case _ =>
+                    Right(false)
+                }
+            }
+          case _ => Right(false)
+        }
+        activityId
+      }
+      try {
+        a.get
+      } catch {
+        case x: NoSuchElementException => Right(false)
+      }
+
+    } catch {
+      case ex: HttpResponseException if ex.getStatusCode == 404 =>
+        Right(false)
+      case ex: Exception =>
+        ex.printStackTrace()
+        Right(false)
+    }
+
+  }
+
+  def uploadRawFile(sendBytes: Array[Byte], fileType: String): Option[Long] = {
 
     try {
       authString.flatMap { authString =>
@@ -164,15 +224,14 @@ class StravaAPI(appId: Int, clientSecret: String, code: Option[String]) {
         val resultString = content.asString()
 
         // we expect to receive 201
-        // TODO: check if result is OK
 
         val resultJson = JSON.parseFull(resultString)
         val uploadId = Option(resultJson).flatMap {
           case M(map) =>
             map.get("id") match {
               case D(id) =>
-                println(s"  upload id ${id.toInt}")
-                Some(id.toInt)
+                println(s"  upload id ${id.toLong}")
+                Some(id.toLong)
               case _ =>
                 None
             }

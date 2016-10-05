@@ -28,7 +28,10 @@ object MovesLinkUploader {
 
   private val uploadedFolder = new File(getDataFolder, uploadedFolderName)
 
-  def uploadXMLFiles(after: Option[ZonedDateTime], api: StravaAPI, alreadyUploaded: Set[String], index: Set[Move], progress: (Int, Int) => Unit): Int = {
+  // Strava id + list of source filenames
+  case class UploadId(id: Long, filenames: Seq[String])
+
+  def uploadXMLFiles(after: Option[ZonedDateTime], api: StravaAPI, alreadyUploaded: Set[String], index: Set[Move], progress: (Int, Int) => Unit): List[UploadId] = {
 
 
     try {
@@ -145,7 +148,7 @@ object MovesLinkUploader {
 
     val toUpload = processTimelines(timelineGPS, timelineHRAdjusted, Nil).reverse
 
-    var uploaded = 0
+    var uploaded = List[UploadId]()
     var processed = 0
     val total = toUpload.size
 
@@ -154,12 +157,12 @@ object MovesLinkUploader {
 
       if (fileTest) {
         fit.Export(move)
-        uploaded += 1
+        uploaded = UploadId(0L, move.fileName.toSeq) +: uploaded
       } else {
         // upload only non-trivial results
         if (!move.isAlmostEmpty(90)) {
-          api.upload(move)
-          uploaded += 1
+          val uploadId = api.upload(move)
+          uploaded = uploaded ++ uploadId.map(id => UploadId(id, move.fileName.toSeq))
         }
 
         markUploaded(move)
@@ -181,6 +184,16 @@ object MovesLinkUploader {
       if (!fileTest) {
         val markFile = new File(uploadedFolder, "/" + filename)
         markFile.createNewFile()
+      }
+    } catch {
+      case _: IOException =>
+    }
+  }
+  def unmarkUploadedFile(filename: String): Unit = {
+    try {
+      if (!fileTest) {
+        val markFile = new File(uploadedFolder, "/" + filename)
+        markFile.delete()
       }
     } catch {
       case _: IOException =>
