@@ -321,7 +321,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
                 {
                   upload.headOption.toList.map { _ =>
                     <form onSubmit="return reupload()">
-                      <input type="submit" value="Delete and upload again"/>
+                      <input type="submit" value="Delete, so that it can be uploaded again"/>
                     </form>
                   }
                 }
