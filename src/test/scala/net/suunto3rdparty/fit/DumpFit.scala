@@ -1,7 +1,7 @@
 package net.suunto3rdparty
 package fit
 
-import java.io.InputStream
+import java.io.{FileOutputStream, InputStream, PrintStream}
 
 import com.garmin.fit._
 
@@ -9,6 +9,16 @@ import scala.collection.JavaConverters._
 import org.scalatest.{FlatSpec, Matchers}
 
 class DumpFit extends FlatSpec with Matchers {
+
+  "Decoder" should "dump a fit file exported from Movescount" in {
+    val in = getClass.getResourceAsStream("/decodeFitMC.fit")
+    decodeFileToFile("decodeFitMC.txt", in)
+  }
+
+  it should "dump a fit file exported from this app" in {
+    val in = getClass.getResourceAsStream("/decodeFitMy.fit")
+    decodeFileToFile("decodeFitMy.txt", in)
+  }
 
   ignore should "ignore" in {
     "Decoder" should "dump a fit file" in {
@@ -37,21 +47,21 @@ class DumpFit extends FlatSpec with Matchers {
     }
   }
 
-  def decodeFile(in: InputStream, ignoreMessages: String*): Unit = {
+  def decodeFileToOutput(output: String => Unit, in: InputStream, ignoreMessages: String*): Unit = {
     val decode = new Decode
     try {
       val listener = new MesgListener {
         override def onMesg(mesg: Mesg): Unit = {
-          println(s"${mesg.getName}")
+          output(s"${mesg.getName}")
           if (!ignoreMessages.contains(mesg.getName)) {
             val fields = mesg.getFields.asScala
             for (f <- fields) {
               f.getName match {
                 case "timestamp" | "start_time" =>
                   val time = new DateTime(f.getLongValue)
-                  println(s"  ${f.getName}:${time.toString}")
+                  output(s"  ${f.getName}:${time.toString}")
                 case _ =>
-                  println(s"  ${f.getName}:${f.getValue}")
+                  output(s"  ${f.getName}:${f.getValue}")
               }
             }
           }
@@ -62,4 +72,17 @@ class DumpFit extends FlatSpec with Matchers {
       in.close()
     }
   }
+
+  def decodeFile(in: InputStream, ignoreMessages: String*): Unit = {
+    decodeFileToOutput(println, in, ignoreMessages:_*)
+  }
+
+  def decodeFileToFile(outName: String, in: InputStream, ignoreMessages: String*): Unit = {
+    val out = new FileOutputStream(outName)
+    val print = new PrintStream(out)
+    decodeFileToOutput(print.println, in, ignoreMessages:_*)
+    out.close()
+    print.close()
+  }
+
 }
