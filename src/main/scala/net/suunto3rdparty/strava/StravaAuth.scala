@@ -9,7 +9,6 @@ import java.util.concurrent._
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import net.suunto3rdparty.moveslink.MovesLinkUploader
 import net.suunto3rdparty.moveslink.MovesLinkUploader.UploadId
-import org.apache.http.client.fluent.Request
 
 import scala.annotation.tailrec
 import scala.concurrent.duration.Duration
@@ -510,6 +509,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
     server.foreach { s =>
       // based on http://stackoverflow.com/a/36129257/16673
       timeoutThread.join()
+      println("Poll thread terminated")
       // we do not need a CountDownLatch, as Await on the promise makes sure the response serving has already started
       s.executor.shutdown()
       s.executor.awaitTermination(1, TimeUnit.MINUTES); // wait until all tasks complete (i. e. all responses are sent)
