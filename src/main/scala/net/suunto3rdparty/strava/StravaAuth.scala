@@ -320,7 +320,9 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
                 <a href="https://www.strava.com">Strava</a> <br/>
                 <a href="https://www.strava.com/athlete/training">My Activities</a><br/>
                 {
-                  upload.headOption.toList.map { _ =>
+                  val buttonGenerator = if (MovesLinkUploader.fileTest || upload.nonEmpty) List(()) else Nil
+                  // we need generate a sequence of Elems, may be empty depending on a condition
+                  buttonGenerator.map { _ =>
                     <form onSubmit="return reupload()">
                       <input type="submit" value="Delete, so that it can be uploaded again"/>
                     </form>
