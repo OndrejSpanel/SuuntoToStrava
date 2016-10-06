@@ -6,12 +6,12 @@ import java.io.IOException
 import java.net.{InetSocketAddress, URL}
 import java.util.concurrent._
 
+import akka.actor.{Actor, Props, ReceiveTimeout, Terminated}
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import net.suunto3rdparty.moveslink.MovesLinkUploader
 import net.suunto3rdparty.moveslink.MovesLinkUploader.UploadId
 
-import scala.annotation.tailrec
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
 import scala.util.Try
 import scala.xml.Elem
@@ -36,7 +36,7 @@ object StravaAuth {
   object ServerDoneSent extends ServerEvent
   object WindowClosedSent extends ServerEvent
 
-  private case class ServerShutdown(server: HttpServer, executor: ExecutorService, events: LinkedBlockingQueue[ServerEvent])
+  private case class ServerShutdown(server: HttpServer, executor: ExecutorService)
   private val authResult = Promise[String]()
   private var server: Option[ServerShutdown] = None
 
@@ -47,46 +47,48 @@ object StravaAuth {
   private var reportResult: String = ""
   private var session: String = ""
 
-  val timeoutThread = new Thread(new Runnable {
-    override def run(): Unit = {
-      @tailrec
-      def pollUntilTerminated(last: Boolean = false): Unit = {
-        val timeoutDelay = pollPeriod * (if (last) 3 else 20)
-        val event = try {
-          server.flatMap(s => Option(s.events.poll(timeoutDelay, TimeUnit.MILLISECONDS)))
-        } catch {
-          case _: InterruptedException =>
-            return
-        }
-        event match {
-          case None =>
-            println(s"Browser closed? Status not polled, timeout ($timeoutDelay sec)")
-            // until the app is terminated, give it a chance to reconnect
-            if (reportResult.isEmpty) {
-              println("  not finished yet, giving a chance to reconnect")
-              pollUntilTerminated(true)
-            } else {
-              println("Finished, browser closed, terminating web server")
-            }
-          case Some(ServerDoneSent) =>
-            println("Final status displayed.")
-            pollUntilTerminated(true)
-          case Some(WindowClosedSent) =>
-            if (reportResult.isEmpty) {
-              println("Browser window closed.")
-              pollUntilTerminated(true)
-            } else {
-              println("Browser window closed, all done, terminating web server.")
-            }
-          case Some(ServerStatusSent) => //
-            pollUntilTerminated()
-        }
-      }
+  case object TimeoutMessage
 
-      pollUntilTerminated()
+  class PollUntilTerminated extends Actor {
+
+    def pollUntilTerminated(last: Boolean = false): Unit = {
+      val timeoutDelay = pollPeriod * (if (last) 3 else 20)
+      context.setReceiveTimeout(timeoutDelay.millisecond)
+      println(s"pollUntilTerminated $timeoutDelay")
     }
-  })
 
+    override def receive = {
+      case ReceiveTimeout =>
+        println("TimeoutMessage")
+        if (reportResult.isEmpty) {
+          println("  not finished yet, giving a chance to reconnect")
+          pollUntilTerminated(true)
+        } else {
+          println("Finished, browser closed, terminating web server")
+          context.stop(self)
+        }
+      case ServerDoneSent =>
+        println("Final status displayed.")
+        pollUntilTerminated(true)
+      case WindowClosedSent =>
+        if (reportResult.isEmpty) {
+          println("Browser window closed.")
+          pollUntilTerminated(true)
+        } else {
+          println("Browser window closed, all done, terminating web server.")
+          context.stop(self)
+        }
+      case ServerStatusSent => //
+        println("ServerStatusSent")
+        pollUntilTerminated()
+      case x =>
+        println(x)
+        pollUntilTerminated()
+    }
+  }
+
+  //noinspection FieldFromDelayedInit
+  val timeoutActor = Main.system.actorOf(Props[PollUntilTerminated], "PollUntilTerminated")
 
   abstract class HttpHandlerHelper extends HttpHandler {
     protected def sendResponse(code: Int, t: HttpExchange, responseXml: Elem): Unit = {
@@ -337,18 +339,18 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
             </html>
 
           sendResponse(200, httpExchange, response)
-          server.foreach(_.events.put(ServerDoneSent))
+          timeoutActor ! ServerDoneSent
         } else {
           val response = <html>
             <h3> {reportProgress} </h3>
           </html>
           sendResponse(202, httpExchange, response)
-          server.foreach(_.events.put(ServerStatusSent))
+          timeoutActor ! ServerStatusSent
         }
       } else {
         val response = <error>Invalid session id</error>
         sendResponse(400, httpExchange, response)
-        server.foreach(_.events.put(ServerStatusSent))
+        timeoutActor ! ServerStatusSent
 
       }
     }
@@ -363,7 +365,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
       }
       if (session==state) {
         // the session is closed, report to the server
-        server.foreach(_.events.put(WindowClosedSent))
+        timeoutActor ! WindowClosedSent
       }
       respondFailure(t, "Session closed")
     }
@@ -440,7 +442,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
             session = state
             respondAuthSuccess(t, state)
             if (!authResult.isCompleted) authResult.success(code)
-            else server.foreach(_.events.put(ServerStatusSent))
+            else timeoutActor ! ServerStatusSent
           case errorPattern(error) =>
             respondAuthFailure(t, error)
             authResult.failure(new IllegalArgumentException(s"Unexpected URL $requestURL"))
@@ -456,6 +458,23 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 
   }
 
+  class TimeoutTerminator(server: HttpServer, ex: ExecutorService) extends Actor {
+
+    context.watch(timeoutActor)
+
+    def receive = {
+      case Terminated(_) =>
+        println("Poll actor terminated")
+        // we do not need a CountDownLatch, as Await on the promise makes sure the response serving has already started
+        ex.shutdown()
+        ex.awaitTermination(1, TimeUnit.MINUTES); // wait until all tasks complete (i. e. all responses are sent)
+        server.stop(0)
+        context.stop(self)
+        context.system.terminate()
+        println("Terminated actor system")
+    }
+  }
+
   // http://stackoverflow.com/a/3732328/16673
   private def startHttpServer(callbackPort: Int) = {
     val ex = Executors.newSingleThreadExecutor()
@@ -469,8 +488,13 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
     server.createContext(s"/$deletePath", DeleteHandler)
 
     server.setExecutor(ex) // creates a default executor
+
+
+    //noinspection FieldFromDelayedInit
+    Main.system.actorOf(Props(classOf[TimeoutTerminator], server, ex), "TimeoutTerminator")
+
     server.start()
-    ServerShutdown(server, ex, events)
+    ServerShutdown(server, ex)
   }
 
   def apply(appId: Int, callbackPort: Int, access: String): Option[String] = {
@@ -490,7 +514,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 
     val ret = Try (Await.result(authResult.future, Duration(5, TimeUnit.MINUTES))).toOption
 
-    timeoutThread.start()
+    timeoutActor ! ServerStatusSent
 
     ret
   }
@@ -504,17 +528,6 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
     reportResult = status
 
     uploadedIds = uploaded
-
-
-    server.foreach { s =>
-      // based on http://stackoverflow.com/a/36129257/16673
-      timeoutThread.join()
-      println("Poll thread terminated")
-      // we do not need a CountDownLatch, as Await on the promise makes sure the response serving has already started
-      s.executor.shutdown()
-      s.executor.awaitTermination(1, TimeUnit.MINUTES); // wait until all tasks complete (i. e. all responses are sent)
-      s.server.stop(0)
-    }
   }
 
 }

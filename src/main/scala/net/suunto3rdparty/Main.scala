@@ -11,6 +11,8 @@ import scala.util.Try
 object Main extends App {
   val log = Logger.getLogger(classOf[App])
 
+  val system = ActorSystem("UploadSystem")
+
   val api = new StravaAPIThisApp
 
   def getActivitiesIds(checkUploadIds: List[Long], done: Map[Long, Long]): Map[Long, Long] = {
@@ -75,7 +77,6 @@ object Main extends App {
   }
 
   case object DoUploadMessage
-  case object UploadDoneMessage
 
   class DoUpload extends Actor {
     override def receive: Receive = {
@@ -85,20 +86,7 @@ object Main extends App {
     }
   }
 
-  class Terminator(ref: ActorRef) extends Actor with ActorLogging {
-    context.watch(ref)
-
-    def receive = {
-      case Terminated(_) =>
-        context.system.terminate()
-    }
-  }
-
-
-  val system = ActorSystem("UploadSystem")
   val upload = system.actorOf(Props[DoUpload], name = "doUpload")
-
-  system.actorOf(Props(classOf[Terminator], upload), "terminator")
 
   upload ! DoUploadMessage
 
