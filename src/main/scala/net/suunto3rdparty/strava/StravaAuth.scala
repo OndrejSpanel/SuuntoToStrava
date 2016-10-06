@@ -3,25 +3,29 @@ package strava
 
 import java.awt.Desktop
 import java.io.IOException
-import java.net.{InetSocketAddress, URL}
-import java.util.concurrent._
+import java.net.URL
 
-import akka.actor.{Actor, Props, ReceiveTimeout, Terminated}
+import akka.actor.{Actor, ActorSystem, Props, ReceiveTimeout, Terminated}
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.model.HttpMethods._
+import akka.http.scaladsl.model._
+import akka.stream.ActorMaterializer
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import net.suunto3rdparty.moveslink.MovesLinkUploader
 import net.suunto3rdparty.moveslink.MovesLinkUploader.UploadId
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Promise}
+import scala.concurrent.{Await, Future, Promise}
 import scala.util.Try
 import scala.xml.Elem
 
 object StravaAuth {
-  private val callbackPath = "stravaAuth.html"
-  private val statusPath = "status.xml"
-  private val donePath = "done.xml"
-  private val saveSettingsPath = "saveSettings"
-  private val deletePath = "retry"
+  private val callbackPath = "/stravaAuth.html"
+  private val statusPath = "/status.xml"
+  private val donePath = "/done.xml"
+  private val saveSettingsPath = "/saveSettings"
+  private val deletePath = "/retry"
 
   private val pollPeriod = 2000 // miliseconds
 
@@ -36,9 +40,7 @@ object StravaAuth {
   object ServerDoneSent extends ServerEvent
   object WindowClosedSent extends ServerEvent
 
-  private case class ServerShutdown(server: HttpServer, executor: ExecutorService)
   private val authResult = Promise[String]()
-  private var server: Option[ServerShutdown] = None
 
   private var reportProgress: String = "Reading files..."
 
@@ -90,17 +92,14 @@ object StravaAuth {
   //noinspection FieldFromDelayedInit
   val timeoutActor = Main.system.actorOf(Props[PollUntilTerminated], "PollUntilTerminated")
 
-  abstract class HttpHandlerHelper extends HttpHandler {
-    protected def sendResponse(code: Int, t: HttpExchange, responseXml: Elem): Unit = {
+  object HttpHandlerHelper {
+    def sendResponse(code: Int, t: HttpRequest, responseXml: Elem): HttpResponse = {
       val response = responseXml.toString
 
-      t.sendResponseHeaders(code, response.length)
-      val os = t.getResponseBody
-      os.write(response.getBytes)
-      os.close()
+      HttpResponse(entity = HttpEntity(ContentTypes.`text/html(UTF-8)`, response))
     }
 
-    protected def respondAuthSuccess(t: HttpExchange, state: String): Unit = {
+    def respondAuthSuccess(t: HttpRequest, state: String): HttpResponse = {
       val scriptText =
       //language=JavaScript
         s"""var finished = false;
@@ -154,20 +153,20 @@ function submitSettings(f) {
   var questOffset = f.elements["quest_time_offset"].value;
   var pars = "max_hr=" + maxHR + "&quest_time_offset=" + questOffset;
   var xmlhttp = ajax();
-  ajaxPost(xmlhttp, "./$saveSettingsPath?state=$state&" + pars, true); // POST to prevent caching
+  ajaxPost(xmlhttp, ".$saveSettingsPath?state=$state&" + pars, true); // POST to prevent caching
   return false;
 }
 
 function reupload() {
   var xmlhttp = ajax();
-  ajaxPost(xmlhttp, "./$deletePath?state=$state", true); // POST to prevent caching
+  ajaxPost(xmlhttp, ".$deletePath?state=$state", true); // POST to prevent caching
   return false;
 }
 
 function closingCode(){
   if (!finished) {
     var xmlhttp = ajax();
-    ajaxPost(xmlhttp, "./$donePath?state=$state", false); // sync to make sure request is send before the window closes
+    ajaxPost(xmlhttp, ".$donePath?state=$state", false); // sync to make sure request is send before the window closes
     return null;
   }
 }
@@ -256,7 +255,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
       sendResponse(200, t, responseXml)
     }
 
-    protected def respondFailure(t: HttpExchange, error: String): Unit = {
+    def respondFailure(t: HttpRequest, error: String): HttpResponse = {
       val responseXml =
         <html>
           <title>Suunto To Strava Authentication</title>
@@ -275,7 +274,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
       sendResponse(400, t, responseXml)
     }
 
-    protected def respondAuthFailure(t: HttpExchange, error: String): Unit = {
+    def respondAuthFailure(t: HttpRequest, error: String): HttpResponse = {
       val responseXml =
         <html>
           <title>Suunto To Strava Authentication</title>
@@ -297,170 +296,165 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 
 
   }
-  object StatusHandler extends HttpHandlerHelper {
+  def statusHandler(r: HttpRequest): HttpResponse = {
+    val requestURL = r.uri.toString
+    println(requestURL)
+    val state = requestURL match {
+      case statePattern(s) => s
+      case _ => ""
+    }
+    if (session == state) {
+      if (reportResult.nonEmpty) {
 
-    override def handle(httpExchange: HttpExchange): Unit = {
-      val requestURL = httpExchange.getRequestURI.toASCIIString
-      println(requestURL)
-      val state = requestURL match {
-        case statePattern(s) => s
-        case _ => ""
-      }
-      if (session==state) {
-        if (reportResult.nonEmpty) {
-
-          val upload = uploadedIds.map(_.id)
-          val response =
-            <html>
-              <h3>
-                {reportResult}
-              </h3>
-              <p>Proceed to:
-                <br/>
-                <a href="https://www.strava.com">Strava</a> <br/>
-                <a href="https://www.strava.com/athlete/training">My Activities</a><br/>
-                {
-                  val buttonGenerator = if (MovesLinkUploader.fileTest || upload.nonEmpty) List(()) else Nil
-                  // we need generate a sequence of Elems, may be empty depending on a condition
-                  buttonGenerator.map { _ =>
-                    <form onSubmit="return reupload()">
-                      <input type="submit" value="Delete, so that it can be uploaded again"/>
-                    </form>
-                  }
-                }
-                <table>
-                {
-                  upload.map { moveId =>
-                    <tr><td>
-                      <a href={s"https://www.strava.com/activities/$moveId"}>Move {moveId}</a>
-                    </td></tr>
-                  }
-                }
-                </table>
-              </p>
-            </html>
-
-          sendResponse(200, httpExchange, response)
-          timeoutActor ! ServerDoneSent
-        } else {
-          val response = <html>
-            <h3> {reportProgress} </h3>
+        val upload = uploadedIds.map(_.id)
+        val response =
+          <html>
+            <h3>
+              {reportResult}
+            </h3>
+            <p>Proceed to:
+              <br/>
+              <a href="https://www.strava.com">Strava</a> <br/>
+              <a href="https://www.strava.com/athlete/training">My Activities</a> <br/>{val buttonGenerator = if (MovesLinkUploader.fileTest || upload.nonEmpty) List(()) else Nil
+            // we need generate a sequence of Elems, may be empty depending on a condition
+            buttonGenerator.map { _ =>
+              <form onSubmit="return reupload()">
+                <input type="submit" value="Delete, so that it can be uploaded again"/>
+              </form>
+            }}<table>
+              {upload.map { moveId =>
+                <tr>
+                  <td>
+                    <a href={s"https://www.strava.com/activities/$moveId"}>Move
+                      {moveId}
+                    </a>
+                  </td>
+                </tr>
+              }}
+            </table>
+            </p>
           </html>
-          sendResponse(202, httpExchange, response)
-          timeoutActor ! ServerStatusSent
-        }
+
+        timeoutActor ! ServerDoneSent
+        HttpHandlerHelper.sendResponse(200, r, response)
       } else {
-        val response = <error>Invalid session id</error>
-        sendResponse(400, httpExchange, response)
-        timeoutActor ! ServerStatusSent
-
-      }
-    }
-  }
-  object DoneHandler extends HttpHandlerHelper {
-    override def handle(t: HttpExchange): Unit = {
-      val requestURL = t.getRequestURI.toASCIIString
-      println(requestURL)
-      val state = requestURL match {
-        case statePattern(s) => s
-        case _ => ""
-      }
-      if (session==state) {
-        // the session is closed, report to the server
-        timeoutActor ! WindowClosedSent
-      }
-      respondFailure(t, "Session closed")
-    }
-  }
-
-  object SaveSettingsHandler extends HttpHandlerHelper {
-    override def handle(t: HttpExchange): Unit = {
-      val requestURL = t.getRequestURI.toASCIIString
-      println(requestURL)
-      val state = requestURL match {
-        case statePattern(s) => s
-        case _ => ""
-      }
-      if (session==state) {
-        val maxHRPattern = paramPattern("max_hr")
-        val questOffsetPattern = paramPattern("quest_time_offset")
-        val maxHR = requestURL match {
-          case maxHRPattern(s) => Some(s.toInt)
-          case _ => None
-        }
-        val questOffset = requestURL match {
-          case questOffsetPattern(s) => Some(s.toInt)
-          case _ => None
-        }
-
-        Settings.save(maxHR, questOffset)
-
-        sendResponse(200, t, <html><title>OK</title></html>)
-      } else {
-        respondFailure(t, "Session closed")
-      }
-    }
-  }
-
-  object DeleteHandler extends HttpHandlerHelper {
-    override def handle(t: HttpExchange): Unit = {
-      val requestURL = t.getRequestURI.toASCIIString
-      println(requestURL)
-      val state = requestURL match {
-        case statePattern(s) => s
-        case _ => ""
-      }
-      if (session==state) {
-        uploadedIds.foreach { id =>
-          id.filenames.foreach(MovesLinkUploader.unmarkUploadedFile)
-
-          //noinspection FieldFromDelayedInit
-          Main.api.deleteActivity(id.id)
-        }
-
-        val responseXml = <html>
-          <title>Deleted</title> <body>All files deleted.</body>
+        val response = <html>
+          <h3>
+            {reportProgress}
+          </h3>
         </html>
-        sendResponse(200, t, responseXml)
-      } else {
-        respondFailure(t, "Session closed")
+        timeoutActor ! ServerStatusSent
+        HttpHandlerHelper.sendResponse(202, r, response)
       }
+    } else {
+      val response = <error>Invalid session id</error>
+      timeoutActor ! ServerStatusSent
+      HttpHandlerHelper.sendResponse(400, r, response)
+
+    }
+  }
+  def doneHandler(t: HttpRequest): HttpResponse = {
+    val requestURL = t.uri.toString
+    println(requestURL)
+    val state = requestURL match {
+      case statePattern(s) => s
+      case _ => ""
+    }
+    if (session == state) {
+      // the session is closed, report to the server
+      timeoutActor ! WindowClosedSent
+    }
+    HttpHandlerHelper.respondFailure(t, "Session closed")
+  }
+
+  def saveSettingsHandler(t: HttpRequest): HttpResponse = {
+    val requestURL = t.uri.toString
+    val state = requestURL match {
+      case statePattern(s) => s
+      case _ => ""
+    }
+    if (session == state) {
+      val maxHRPattern = paramPattern("max_hr")
+      val questOffsetPattern = paramPattern("quest_time_offset")
+      val maxHR = requestURL match {
+        case maxHRPattern(s) => Some(s.toInt)
+        case _ => None
+      }
+      val questOffset = requestURL match {
+        case questOffsetPattern(s) => Some(s.toInt)
+        case _ => None
+      }
+
+      Settings.save(maxHR, questOffset)
+
+      HttpHandlerHelper.sendResponse(200, t, <html>
+        <title>OK</title>
+      </html>)
+    } else {
+      HttpHandlerHelper.respondFailure(t, "Session closed")
     }
   }
 
-  object AuthHandler extends HttpHandlerHelper {
+  def deleteHandler(t: HttpRequest): HttpResponse = {
+    val requestURL = t.uri.toString
+    println(requestURL)
+    val state = requestURL match {
+      case statePattern(s) => s
+      case _ => ""
+    }
+    if (session == state) {
+      uploadedIds.foreach { id =>
+        id.filenames.foreach(MovesLinkUploader.unmarkUploadedFile)
 
-    def handle(t: HttpExchange): Unit = {
-      // Url expected in form: /stravaAuth.html?state=&code=xxxxxxxx
-      val requestURL = t.getRequestURI.toASCIIString
-      println(requestURL)
-      val state = requestURL match {
-        case statePattern(s) => s
-        case _ => ""
-      }
-      if (session == "" || session == state) {
-        requestURL match {
-          case passedPattern(code) =>
-            session = state
-            respondAuthSuccess(t, state)
-            if (!authResult.isCompleted) authResult.success(code)
-            else timeoutActor ! ServerStatusSent
-          case errorPattern(error) =>
-            respondAuthFailure(t, error)
-            authResult.failure(new IllegalArgumentException(s"Unexpected URL $requestURL"))
-          case _ =>
-            respondAuthFailure(t, "Unknown error")
-            authResult.failure(new IllegalArgumentException(s"Unexpected URL $requestURL"))
-        }
-      } else {
-        respondFailure(t, "Session expired")
+        //noinspection FieldFromDelayedInit
+        Main.api.deleteActivity(id.id)
       }
 
+      Main.startUpload()
+
+      val responseXml = <html>
+        <title>Deleted</title> <body>All files deleted.</body>
+      </html>
+      HttpHandlerHelper.sendResponse(200, t, responseXml)
+    } else {
+      HttpHandlerHelper.respondFailure(t, "Session closed")
+    }
+  }
+
+  def authHandler(r: HttpRequest): HttpResponse = {
+
+    HttpResponse(entity = HttpEntity(
+      ContentTypes.`text/html(UTF-8)`,
+      "<html><body>Hello world!</body></html>"))
+
+    // Url expected in form: /stravaAuth.html?state=&code=xxxxxxxx
+    val requestURL = r.uri.toString // TODO: better parsing using akka http means
+    println(requestURL)
+    val state = requestURL match {
+      case statePattern(s) => s
+      case _ => ""
+    }
+    if (session == "" || session == state) {
+      requestURL match {
+        case passedPattern(code) =>
+          session = state
+          if (!authResult.isCompleted) authResult.success(code)
+          else timeoutActor ! ServerStatusSent
+          HttpHandlerHelper.respondAuthSuccess(r, state)
+        case errorPattern(error) =>
+          authResult.failure(new IllegalArgumentException(s"Unexpected URL $requestURL"))
+          HttpHandlerHelper.respondAuthFailure(r, error)
+        case _ =>
+          authResult.failure(new IllegalArgumentException(s"Unexpected URL $requestURL"))
+          HttpHandlerHelper.respondAuthFailure(r, "Unknown error")
+      }
+    } else {
+      HttpHandlerHelper.respondFailure(r, "Session expired")
     }
 
   }
 
-  class TimeoutTerminator(server: HttpServer, ex: ExecutorService) extends Actor {
+  class TimeoutTerminator(server: ServerShutdown) extends Actor {
 
     context.watch(timeoutActor)
 
@@ -468,39 +462,64 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
       case Terminated(_) =>
         println("Poll actor terminated")
         // we do not need a CountDownLatch, as Await on the promise makes sure the response serving has already started
-        ex.shutdown()
-        ex.awaitTermination(1, TimeUnit.MINUTES); // wait until all tasks complete (i. e. all responses are sent)
-        server.stop(0)
+        stopServer(server)
         context.stop(self)
         context.system.terminate()
         println("Terminated actor system")
     }
   }
 
+  case class ServerShutdown(binding: Future[ServerBinding], system: ActorSystem)
+
   // http://stackoverflow.com/a/3732328/16673
-  private def startHttpServer(callbackPort: Int) = {
-    val ex = Executors.newSingleThreadExecutor()
-    val events = new LinkedBlockingQueue[ServerEvent]()
+  private def startHttpServer(callbackPort: Int): ServerShutdown = {
 
-    val server = HttpServer.create(new InetSocketAddress(8080), 0)
-    server.createContext(s"/$callbackPath", AuthHandler)
-    server.createContext(s"/$statusPath", StatusHandler)
-    server.createContext(s"/$donePath", DoneHandler)
-    server.createContext(s"/$saveSettingsPath", SaveSettingsHandler)
-    server.createContext(s"/$deletePath", DeleteHandler)
+    implicit val system = ActorSystem()
+    implicit val materializer = ActorMaterializer()
+    // needed for the future map/flatmap in the end
 
-    server.setExecutor(ex) // creates a default executor
+    val requestHandler: HttpRequest => HttpResponse = {
+      case r@HttpRequest(GET, Uri.Path(`callbackPath`), _, _, _) =>
+        authHandler(r)
 
+      case r@HttpRequest(GET, Uri.Path(`statusPath`), _, _, _) =>
+        statusHandler(r)
+
+      case r@HttpRequest(GET, Uri.Path(`statusPath`), _, _, _) =>
+        doneHandler(r)
+
+      case r@HttpRequest(GET, Uri.Path(`saveSettingsPath`), _, _, _) =>
+        saveSettingsHandler(r)
+
+      case r@HttpRequest(GET, Uri.Path(`deletePath`), _, _, _) =>
+        deleteHandler(r)
+
+      case r: HttpRequest =>
+        r.discardEntityBytes() // important to drain incoming HTTP Entity stream
+        HttpResponse(404, entity = "Unknown resource!")
+    }
+
+    val bindingFuture = Http().bindAndHandleSync(requestHandler, "localhost", 8080)
+
+    val server = ServerShutdown(bindingFuture, system)
 
     //noinspection FieldFromDelayedInit
-    Main.system.actorOf(Props(classOf[TimeoutTerminator], server, ex), "TimeoutTerminator")
+    Main.system.actorOf(Props(classOf[TimeoutTerminator], server), "TimeoutTerminator")
 
-    server.start()
-    ServerShutdown(server, ex)
+    server
+
+  }
+
+  def stopServer(server: ServerShutdown): Unit = {
+    implicit val executionContext = server.system.dispatcher
+    server.binding
+      .flatMap(_.unbind()) // trigger unbinding from the port
+      .onComplete(_ => server.system.terminate()) // and shutdown when done
   }
 
   def apply(appId: Int, callbackPort: Int, access: String): Option[String] = {
-    server = Some(startHttpServer(callbackPort))
+
+    startHttpServer(callbackPort)
 
     val sessionId = System.currentTimeMillis().toHexString
     val callbackUrl = s"http://localhost:$callbackPort/$callbackPath"
@@ -514,7 +533,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
         e.printStackTrace()
     }
 
-    val ret = Try (Await.result(authResult.future, Duration(5, TimeUnit.MINUTES))).toOption
+    val ret = Try (Await.result(authResult.future, 5.minutes)).toOption
 
     timeoutActor ! ServerStatusSent
 

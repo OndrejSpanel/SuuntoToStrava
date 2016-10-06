@@ -82,12 +82,16 @@ object Main extends App {
     override def receive: Receive = {
       case DoUploadMessage =>
         doUpload()
-        context.stop(self)
     }
   }
 
+
   val upload = system.actorOf(Props[DoUpload], name = "doUpload")
 
-  upload ! DoUploadMessage
+  def startUpload(): Unit = {
+    upload ! DoUploadMessage
+  }
+
+  startUpload()
 
 }
