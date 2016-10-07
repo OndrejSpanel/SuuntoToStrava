@@ -11,7 +11,8 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
-import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
+import akka.http.scaladsl.server.Directives._
+
 import net.suunto3rdparty.moveslink.MovesLinkUploader
 import net.suunto3rdparty.moveslink.MovesLinkUploader.UploadId
 
@@ -480,18 +481,23 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 
     val requestHandler: HttpRequest => HttpResponse = {
       case r@HttpRequest(GET, Uri.Path(`callbackPath`), _, _, _) =>
+        r.discardEntityBytes() // important to drain incoming HTTP Entity stream
         authHandler(r)
 
       case r@HttpRequest(GET, Uri.Path(`statusPath`), _, _, _) =>
+        r.discardEntityBytes() // important to drain incoming HTTP Entity stream
         statusHandler(r)
 
       case r@HttpRequest(GET, Uri.Path(`statusPath`), _, _, _) =>
+        r.discardEntityBytes() // important to drain incoming HTTP Entity stream
         doneHandler(r)
 
       case r@HttpRequest(GET, Uri.Path(`saveSettingsPath`), _, _, _) =>
+        r.discardEntityBytes() // important to drain incoming HTTP Entity stream
         saveSettingsHandler(r)
 
       case r@HttpRequest(GET, Uri.Path(`deletePath`), _, _, _) =>
+        r.discardEntityBytes() // important to drain incoming HTTP Entity stream
         deleteHandler(r)
 
       case r: HttpRequest =>
