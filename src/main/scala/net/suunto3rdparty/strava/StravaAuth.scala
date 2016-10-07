@@ -30,10 +30,11 @@ object StravaAuth {
 
   private val pollPeriod = 2000 // miliseconds
 
-  sealed trait ServerEvent
-  object ServerStatusSent extends ServerEvent
-  object ServerDoneSent extends ServerEvent
-  object WindowClosedSent extends ServerEvent
+  case object ServerStatusSent
+  case object ServerDoneSent
+  case object WindowClosedSent
+  case object UploadDone
+  case object UploadNotDone
 
   private val authResult = Promise[String]()
 
@@ -46,6 +47,8 @@ object StravaAuth {
 
   class PollUntilTerminated extends Actor {
 
+    private var done = false
+
     def pollUntilTerminated(last: Boolean = false): Unit = {
       val timeoutDelay = pollPeriod * (if (last) 3 else 20)
       context.setReceiveTimeout(timeoutDelay.millisecond)
@@ -53,26 +56,23 @@ object StravaAuth {
     }
 
     override def receive = {
-      case ReceiveTimeout =>
-        println("ReceiveTimeout")
-        if (reportResult.isEmpty) {
-          println("  not finished yet, giving a chance to reconnect")
-          pollUntilTerminated(true)
-        } else {
-          println("Finished, browser closed, terminating web server")
-          context.stop(self)
-        }
-      case ServerDoneSent =>
-        println("Final status displayed.")
-        pollUntilTerminated(true)
-      case WindowClosedSent =>
-        if (reportResult.isEmpty) {
+      case UploadDone =>
+        done = true
+
+      case UploadNotDone =>
+        done = false
+
+      case (ReceiveTimeout | WindowClosedSent) =>
+        if (!done) {
           println("Browser window closed.")
           pollUntilTerminated(true)
         } else {
           println("Browser window closed, all done, terminating web server.")
           context.stop(self)
         }
+      case ServerDoneSent =>
+        println("Final status displayed.")
+        pollUntilTerminated(true)
       case ServerStatusSent => //
         println("ServerStatusSent")
         pollUntilTerminated()
@@ -293,9 +293,8 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 
       sendResponse(400, responseXml)
     }
-
-
   }
+
   def statusHandler(state: String): HttpResponse = {
     if (session == state) {
       if (reportResult.nonEmpty) {
@@ -495,8 +494,6 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 
     val ret = Try (Await.result(authResult.future, 5.minutes)).toOption
 
-    timeoutActor ! ServerStatusSent
-
     ret
   }
 
@@ -506,6 +503,9 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
   }
 
   def stop(status: String, uploaded: List[UploadId]): Unit = {
+
+    timeoutActor ! UploadDone
+
     reportResult = status
 
     uploadedIds = uploaded
