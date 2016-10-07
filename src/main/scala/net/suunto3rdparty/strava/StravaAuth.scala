@@ -8,6 +8,7 @@ import java.net.URL
 import akka.actor.{Actor, ActorSystem, Props, ReceiveTimeout, Terminated}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.model.ContentType.WithCharset
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
@@ -91,11 +92,16 @@ object StravaAuth {
   val timeoutActor = Main.system.actorOf(Props[PollUntilTerminated], "PollUntilTerminated")
 
   object HttpHandlerHelper {
-    def sendResponse(code: Int, responseXml: Elem): HttpResponse = {
-      val response = responseXml.toString
+    private def sendResponseWithContentType(code: Int, responseXml: Elem, ct: WithCharset) = {
+      HttpResponse(status = code, entity = HttpEntity(ct, responseXml.toString))
+    }
 
-      val rr = HttpResponse(status = code, entity = HttpEntity(ContentTypes.`text/html(UTF-8)`, response))
-      rr
+    def sendResponse(code: Int, responseXml: Elem): HttpResponse = {
+      sendResponseWithContentType(code, responseXml, ContentTypes.`text/html(UTF-8)`)
+    }
+
+    def sendResponseXML(code: Int, responseXml: Elem): HttpResponse = {
+      sendResponseWithContentType(code, responseXml, ContentTypes.`text/xml(UTF-8)`)
     }
 
     def respondAuthSuccess(state: String): HttpResponse = {
@@ -124,6 +130,7 @@ function updateStatus() {
     xmlhttp.onreadystatechange = function () {
       if (xmlhttp.readyState == 4) {
         if (xmlhttp.status >= 200 && xmlhttp.status < 300) {
+          console.log(xmlhttp);
           var response = xmlhttp.responseXML.getElementsByTagName("html")[0];
           document.getElementById("myDiv").innerHTML = response.innerHTML;
           updateStatus(); // schedule recursively another update
@@ -329,7 +336,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
           </html>
 
         timeoutActor ! ServerDoneSent
-        HttpHandlerHelper.sendResponse(200, response)
+        HttpHandlerHelper.sendResponseXML(200, response)
       } else {
         val response = <html>
           <h3>
@@ -337,12 +344,12 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
           </h3>
         </html>
         timeoutActor ! ServerStatusSent
-        HttpHandlerHelper.sendResponse(202, response)
+        HttpHandlerHelper.sendResponseXML(202, response)
       }
     } else {
       val response = <error>Invalid session id</error>
       timeoutActor ! ServerStatusSent
-      HttpHandlerHelper.sendResponse(400, response)
+      HttpHandlerHelper.sendResponseXML(400, response)
 
     }
   }
@@ -361,9 +368,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 
       Settings.save(getIntParam(maxHR), getIntParam(questOffset))
 
-      HttpHandlerHelper.sendResponse(200, <html>
-        <title>OK</title>
-      </html>)
+      HttpHandlerHelper.sendResponseXML(200, <html> <title>OK</title> </html>)
     } else {
       HttpHandlerHelper.respondFailure("Session closed")
     }
@@ -383,18 +388,13 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
       val responseXml = <html>
         <title>Deleted</title> <body>All files deleted.</body>
       </html>
-      HttpHandlerHelper.sendResponse(200, responseXml)
+      HttpHandlerHelper.sendResponseXML(200, responseXml)
     } else {
       HttpHandlerHelper.respondFailure("Session closed")
     }
   }
 
   def authHandler(state: String, code: Option[String], error: Option[String]): HttpResponse = {
-
-    HttpResponse(entity = HttpEntity(
-      ContentTypes.`text/html(UTF-8)`,
-      "<html><body>Hello world!</body></html>"))
-
     if (session == "" || state == session) {
       if (code.nonEmpty) {
         session = state
