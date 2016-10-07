@@ -396,16 +396,17 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 
   def authHandler(state: String, code: Option[String], error: Option[String]): HttpResponse = {
     if (session == "" || state == session) {
-      if (code.nonEmpty) {
-        session = state
-        if (!authResult.isCompleted) authResult.success(code.get)
-        else timeoutActor ! ServerStatusSent
-        HttpHandlerHelper.respondAuthSuccess(state)
-      } else if (error.nonEmpty) {
-        authResult.failure(new IllegalArgumentException(s"Auth error $error"))
-        HttpHandlerHelper.respondAuthFailure(error.get)
-      } else {
-        HttpHandlerHelper.respondAuthFailure("Unexpected response, expected code or error")
+      (code, error) match {
+        case (Some(c), _) =>
+          session = state
+          if (!authResult.isCompleted) authResult.success(c)
+          else timeoutActor ! ServerStatusSent
+          HttpHandlerHelper.respondAuthSuccess(state)
+        case (_, Some(e)) =>
+          authResult.failure(new IllegalArgumentException(s"Auth error $error"))
+          HttpHandlerHelper.respondAuthFailure(e)
+        case _ =>
+          HttpHandlerHelper.respondAuthFailure("Unexpected response, expected code or error")
       }
     } else {
       HttpHandlerHelper.respondFailure("Session expired")
