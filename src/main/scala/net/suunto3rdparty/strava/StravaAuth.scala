@@ -8,11 +8,10 @@ import java.net.URL
 import akka.actor.{Actor, ActorSystem, Props, ReceiveTimeout, Terminated}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.model._
-import akka.stream.ActorMaterializer
 import akka.http.scaladsl.server.Directives._
-
+import akka.http.scaladsl.server.Route
+import akka.stream.ActorMaterializer
 import net.suunto3rdparty.moveslink.MovesLinkUploader
 import net.suunto3rdparty.moveslink.MovesLinkUploader.UploadId
 
@@ -22,17 +21,17 @@ import scala.util.Try
 import scala.xml.Elem
 
 object StravaAuth {
-  private val callbackPath = "/stravaAuth.html"
-  private val statusPath = "/status.xml"
-  private val donePath = "/done.xml"
-  private val saveSettingsPath = "/saveSettings"
-  private val deletePath = "/retry"
+  private val callbackPath = "stravaAuth.html"
+  private val statusPath = "status.xml"
+  private val donePath = "done.xml"
+  private val saveSettingsPath = "saveSettings"
+  private val deletePath = "retry"
 
   private val pollPeriod = 2000 // miliseconds
 
   private def paramPattern(param: String) = ("/.*\\?.*" + param + "=([^&\\?]*).*").r
 
-  private val passedPattern = paramPattern("code")
+  private val codePattern = paramPattern("code")
   private val errorPattern = paramPattern("error")
   private val statePattern = paramPattern("state")
 
@@ -50,8 +49,6 @@ object StravaAuth {
   private var reportResult: String = ""
   private var session: String = ""
 
-  case object TimeoutMessage
-
   class PollUntilTerminated extends Actor {
 
     def pollUntilTerminated(last: Boolean = false): Unit = {
@@ -62,7 +59,7 @@ object StravaAuth {
 
     override def receive = {
       case ReceiveTimeout =>
-        println("TimeoutMessage")
+        println("ReceiveTimeout")
         if (reportResult.isEmpty) {
           println("  not finished yet, giving a chance to reconnect")
           pollUntilTerminated(true)
@@ -94,13 +91,14 @@ object StravaAuth {
   val timeoutActor = Main.system.actorOf(Props[PollUntilTerminated], "PollUntilTerminated")
 
   object HttpHandlerHelper {
-    def sendResponse(code: Int, t: HttpRequest, responseXml: Elem): HttpResponse = {
+    def sendResponse(code: Int, responseXml: Elem): HttpResponse = {
       val response = responseXml.toString
 
-      HttpResponse(entity = HttpEntity(ContentTypes.`text/html(UTF-8)`, response))
+      val rr = HttpResponse(status = code, entity = HttpEntity(ContentTypes.`text/html(UTF-8)`, response))
+      rr
     }
 
-    def respondAuthSuccess(t: HttpRequest, state: String): HttpResponse = {
+    def respondAuthSuccess(state: String): HttpResponse = {
       val scriptText =
       //language=JavaScript
         s"""var finished = false;
@@ -154,20 +152,20 @@ function submitSettings(f) {
   var questOffset = f.elements["quest_time_offset"].value;
   var pars = "max_hr=" + maxHR + "&quest_time_offset=" + questOffset;
   var xmlhttp = ajax();
-  ajaxPost(xmlhttp, ".$saveSettingsPath?state=$state&" + pars, true); // POST to prevent caching
+  ajaxPost(xmlhttp, "./$saveSettingsPath?state=$state&" + pars, true); // POST to prevent caching
   return false;
 }
 
 function reupload() {
   var xmlhttp = ajax();
-  ajaxPost(xmlhttp, ".$deletePath?state=$state", true); // POST to prevent caching
+  ajaxPost(xmlhttp, "./$deletePath?state=$state", true); // POST to prevent caching
   return false;
 }
 
 function closingCode(){
   if (!finished) {
     var xmlhttp = ajax();
-    ajaxPost(xmlhttp, ".$donePath?state=$state", false); // sync to make sure request is send before the window closes
+    ajaxPost(xmlhttp, "./$donePath?state=$state", false); // sync to make sure request is send before the window closes
     return null;
   }
 }
@@ -253,10 +251,10 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
         </script>
       </html>
 
-      sendResponse(200, t, responseXml)
+      sendResponse(200, responseXml)
     }
 
-    def respondFailure(t: HttpRequest, error: String): HttpResponse = {
+    def respondFailure(error: String): HttpResponse = {
       val responseXml =
         <html>
           <title>Suunto To Strava Authentication</title>
@@ -272,10 +270,10 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
           </body>
         </html>
 
-      sendResponse(400, t, responseXml)
+      sendResponse(400, responseXml)
     }
 
-    def respondAuthFailure(t: HttpRequest, error: String): HttpResponse = {
+    def respondAuthFailure(error: String): HttpResponse = {
       val responseXml =
         <html>
           <title>Suunto To Strava Authentication</title>
@@ -292,52 +290,46 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
           </body>
         </html>
 
-      sendResponse(400, t, responseXml)
+      sendResponse(400, responseXml)
     }
 
 
   }
-  def statusHandler(r: HttpRequest): HttpResponse = {
-    val requestURL = r.uri.toString
-    println(requestURL)
-    val state = requestURL match {
-      case statePattern(s) => s
-      case _ => ""
-    }
+  def statusHandler(state: String): HttpResponse = {
     if (session == state) {
       if (reportResult.nonEmpty) {
 
         val upload = uploadedIds.map(_.id)
         val response =
           <html>
-            <h3>
-              {reportResult}
-            </h3>
+            <h3> {reportResult} </h3>
             <p>Proceed to:
               <br/>
               <a href="https://www.strava.com">Strava</a> <br/>
-              <a href="https://www.strava.com/athlete/training">My Activities</a> <br/>{val buttonGenerator = if (MovesLinkUploader.fileTest || upload.nonEmpty) List(()) else Nil
-            // we need generate a sequence of Elems, may be empty depending on a condition
-            buttonGenerator.map { _ =>
-              <form onSubmit="return reupload()">
-                <input type="submit" value="Delete, so that it can be uploaded again"/>
-              </form>
-            }}<table>
-              {upload.map { moveId =>
-                <tr>
-                  <td>
-                    <a href={s"https://www.strava.com/activities/$moveId"}>Move
-                      {moveId}
-                    </a>
-                  </td>
-                </tr>
-              }}
-            </table>
+              <a href="https://www.strava.com/athlete/training">My Activities</a> <br/>
+              {
+                val buttonGenerator = if (MovesLinkUploader.fileTest || upload.nonEmpty) List(()) else Nil
+                // we need generate a sequence of Elems, may be empty depending on a condition
+                buttonGenerator.map { _ =>
+                  <form onSubmit="return reupload()">
+                    <input type="submit" value="Delete, so that it can be uploaded again"/>
+                  </form>
+                }
+              }
+              <table>
+                {upload.map { moveId =>
+                  <tr>
+                    <td>
+                      <a href={s"https://www.strava.com/activities/$moveId"}>Move {moveId}</a>
+                    </td>
+                  </tr>
+                }}
+              </table>
             </p>
           </html>
 
         timeoutActor ! ServerDoneSent
-        HttpHandlerHelper.sendResponse(200, r, response)
+        HttpHandlerHelper.sendResponse(200, response)
       } else {
         val response = <html>
           <h3>
@@ -345,64 +337,39 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
           </h3>
         </html>
         timeoutActor ! ServerStatusSent
-        HttpHandlerHelper.sendResponse(202, r, response)
+        HttpHandlerHelper.sendResponse(202, response)
       }
     } else {
       val response = <error>Invalid session id</error>
       timeoutActor ! ServerStatusSent
-      HttpHandlerHelper.sendResponse(400, r, response)
+      HttpHandlerHelper.sendResponse(400, response)
 
     }
   }
-  def doneHandler(t: HttpRequest): HttpResponse = {
-    val requestURL = t.uri.toString
-    println(requestURL)
-    val state = requestURL match {
-      case statePattern(s) => s
-      case _ => ""
-    }
+  def doneHandler(state: String): HttpResponse = {
     if (session == state) {
       // the session is closed, report to the server
       timeoutActor ! WindowClosedSent
     }
-    HttpHandlerHelper.respondFailure(t, "Session closed")
+    HttpHandlerHelper.respondFailure("Session closed")
   }
 
-  def saveSettingsHandler(t: HttpRequest): HttpResponse = {
-    val requestURL = t.uri.toString
-    val state = requestURL match {
-      case statePattern(s) => s
-      case _ => ""
-    }
+  def saveSettingsHandler(state: String, maxHR: Option[String], questOffset: Option[String]): HttpResponse = {
     if (session == state) {
-      val maxHRPattern = paramPattern("max_hr")
-      val questOffsetPattern = paramPattern("quest_time_offset")
-      val maxHR = requestURL match {
-        case maxHRPattern(s) => Some(s.toInt)
-        case _ => None
-      }
-      val questOffset = requestURL match {
-        case questOffsetPattern(s) => Some(s.toInt)
-        case _ => None
-      }
 
-      Settings.save(maxHR, questOffset)
+      def getIntParam(str: Option[String]) = str.flatMap(s => if (s.isEmpty) None else Some(s.toInt))
 
-      HttpHandlerHelper.sendResponse(200, t, <html>
+      Settings.save(getIntParam(maxHR), getIntParam(questOffset))
+
+      HttpHandlerHelper.sendResponse(200, <html>
         <title>OK</title>
       </html>)
     } else {
-      HttpHandlerHelper.respondFailure(t, "Session closed")
+      HttpHandlerHelper.respondFailure("Session closed")
     }
   }
 
-  def deleteHandler(t: HttpRequest): HttpResponse = {
-    val requestURL = t.uri.toString
-    println(requestURL)
-    val state = requestURL match {
-      case statePattern(s) => s
-      case _ => ""
-    }
+  def deleteHandler(state: String): HttpResponse = {
     if (session == state) {
       uploadedIds.foreach { id =>
         id.filenames.foreach(MovesLinkUploader.unmarkUploadedFile)
@@ -416,43 +383,33 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
       val responseXml = <html>
         <title>Deleted</title> <body>All files deleted.</body>
       </html>
-      HttpHandlerHelper.sendResponse(200, t, responseXml)
+      HttpHandlerHelper.sendResponse(200, responseXml)
     } else {
-      HttpHandlerHelper.respondFailure(t, "Session closed")
+      HttpHandlerHelper.respondFailure("Session closed")
     }
   }
 
-  def authHandler(r: HttpRequest): HttpResponse = {
+  def authHandler(state: String, code: Option[String], error: Option[String]): HttpResponse = {
 
     HttpResponse(entity = HttpEntity(
       ContentTypes.`text/html(UTF-8)`,
       "<html><body>Hello world!</body></html>"))
 
-    // Url expected in form: /stravaAuth.html?state=&code=xxxxxxxx
-    val requestURL = r.uri.toString // TODO: better parsing using akka http means
-    println(requestURL)
-    val state = requestURL match {
-      case statePattern(s) => s
-      case _ => ""
-    }
-    if (session == "" || session == state) {
-      requestURL match {
-        case passedPattern(code) =>
-          session = state
-          if (!authResult.isCompleted) authResult.success(code)
-          else timeoutActor ! ServerStatusSent
-          HttpHandlerHelper.respondAuthSuccess(r, state)
-        case errorPattern(error) =>
-          authResult.failure(new IllegalArgumentException(s"Unexpected URL $requestURL"))
-          HttpHandlerHelper.respondAuthFailure(r, error)
-        case _ =>
-          authResult.failure(new IllegalArgumentException(s"Unexpected URL $requestURL"))
-          HttpHandlerHelper.respondAuthFailure(r, "Unknown error")
+    if (session == "" || state == session) {
+      if (code.nonEmpty) {
+        session = state
+        if (!authResult.isCompleted) authResult.success(code.get)
+        else timeoutActor ! ServerStatusSent
+        HttpHandlerHelper.respondAuthSuccess(state)
+      } else if (error.nonEmpty) {
+        authResult.failure(new IllegalArgumentException(s"Auth error $error"))
+        HttpHandlerHelper.respondAuthFailure(error.get)
+      } else {
+        HttpHandlerHelper.respondAuthFailure("Unexpected response, expected code or error")
       }
     } else {
-      HttpHandlerHelper.respondFailure(r, "Session expired")
+      HttpHandlerHelper.respondFailure("Session expired")
     }
-
   }
 
   class TimeoutTerminator(server: ServerShutdown) extends Actor {
@@ -479,33 +436,35 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
     implicit val materializer = ActorMaterializer()
     // needed for the future map/flatmap in the end
 
-    val requestHandler: HttpRequest => HttpResponse = {
-      case r@HttpRequest(GET, Uri.Path(`callbackPath`), _, _, _) =>
-        r.discardEntityBytes() // important to drain incoming HTTP Entity stream
-        authHandler(r)
-
-      case r@HttpRequest(GET, Uri.Path(`statusPath`), _, _, _) =>
-        r.discardEntityBytes() // important to drain incoming HTTP Entity stream
-        statusHandler(r)
-
-      case r@HttpRequest(GET, Uri.Path(`statusPath`), _, _, _) =>
-        r.discardEntityBytes() // important to drain incoming HTTP Entity stream
-        doneHandler(r)
-
-      case r@HttpRequest(GET, Uri.Path(`saveSettingsPath`), _, _, _) =>
-        r.discardEntityBytes() // important to drain incoming HTTP Entity stream
-        saveSettingsHandler(r)
-
-      case r@HttpRequest(GET, Uri.Path(`deletePath`), _, _, _) =>
-        r.discardEntityBytes() // important to drain incoming HTTP Entity stream
-        deleteHandler(r)
-
-      case r: HttpRequest =>
-        r.discardEntityBytes() // important to drain incoming HTTP Entity stream
-        HttpResponse(404, entity = "Unknown resource!")
+    val route = get {
+      path(callbackPath) {
+        parameters('state, 'code.?, 'error.?) { (state, code, error) =>
+          complete(authHandler(state, code, error))
+        }
+      }
+    } ~ post {
+      path(statusPath) {
+        parameters('state) { state =>
+          complete(statusHandler(state))
+        }
+      } ~  path(donePath) {
+        parameters('state) { state =>
+          complete(doneHandler(state))
+        }
+      } ~  path(deletePath) {
+        parameters('state) { state =>
+          complete(deleteHandler(state))
+        }
+      } ~  path(saveSettingsPath) {
+        parameters('state, 'max_hr.?, 'quest_time_offset.?) { (state, maxHR, questOffset) =>
+          complete(saveSettingsHandler(state, maxHR, questOffset))
+        }
+      }
     }
 
-    val bindingFuture = Http().bindAndHandleSync(requestHandler, "localhost", 8080)
+    // `route` will be implicitly converted to `Flow` using `RouteResult.route2HandlerFlow`
+    // IDEA 2016.3 currently does not follow, to prevent error highligh we use explicit handlerFlow
+    val bindingFuture = Http().bindAndHandle(Route.handlerFlow(route), "localhost", 8080)
 
     val server = ServerShutdown(bindingFuture, system)
 
