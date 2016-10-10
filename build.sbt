@@ -37,6 +37,10 @@ libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.3"
 
 libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
 
+libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.11"
+
+libraryDependencies += "com.typesafe.akka" %% "akka-http-experimental" % "2.4.11"
+
 libraryDependencies += "org.apache.httpcomponents" % "httpclient" % "4.5.2"
 
 libraryDependencies += "org.apache.httpcomponents" % "fluent-hc" % "4.3.6"
