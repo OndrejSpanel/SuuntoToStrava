@@ -38,11 +38,10 @@ object StravaAuth {
 
   private val authResult = Promise[String]()
 
-  private var reportProgress: String = "Reading files..."
+  case class Report(progress: String = "Reading files...", result: String = "", uploadedIds: List[UploadId] = Nil)
 
-  private var uploadedIds = List[UploadId]()
+  private var report = Report()
 
-  private var reportResult: String = ""
   private var session: String = ""
 
   class PollUntilTerminated extends Actor {
@@ -297,12 +296,12 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 
   def statusHandler(state: String): HttpResponse = {
     if (session == state) {
-      if (reportResult.nonEmpty) {
+      if (report.result.nonEmpty) {
 
-        val upload = uploadedIds.map(_.id)
+        val upload = report.uploadedIds.map(_.id)
         val response =
           <html>
-            <h3> {reportResult} </h3>
+            <h3> {report.result} </h3>
             <p>Proceed to:
               <br/>
               <a href="https://www.strava.com">Strava</a> <br/>
@@ -331,11 +330,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
         timeoutActor ! ServerDoneSent
         HttpHandlerHelper.sendResponseXML(200, response)
       } else {
-        val response = <html>
-          <h3>
-            {reportProgress}
-          </h3>
-        </html>
+        val response = <html> <h3> {report.progress} </h3> </html>
         timeoutActor ! ServerStatusSent
         HttpHandlerHelper.sendResponseXML(202, response)
       }
@@ -369,7 +364,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 
   def deleteHandler(state: String): HttpResponse = {
     if (session == state) {
-      uploadedIds.foreach { id =>
+      report.uploadedIds.foreach { id =>
         id.filenames.foreach(MovesLinkUploader.unmarkUploadedFile)
 
         //noinspection FieldFromDelayedInit
@@ -499,16 +494,14 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
 
   def progress(status: String): Unit = {
     println(s"Progress: $status")
-    reportProgress = status
+    report = report.copy(progress = status)
   }
 
   def stop(status: String, uploaded: List[UploadId]): Unit = {
 
     timeoutActor ! UploadDone
 
-    reportResult = status
-
-    uploadedIds = uploaded
+    report = report.copy(result = status, uploadedIds = uploaded)
   }
 
 }
