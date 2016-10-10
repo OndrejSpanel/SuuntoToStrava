@@ -311,7 +311,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
                 // we need generate a sequence of Elems, may be empty depending on a condition
                 buttonGenerator.map { _ =>
                   <form onSubmit="return reupload()">
-                    <input type="submit" value="Delete, so that it can be uploaded again"/>
+                    <input type="submit" value="Delete and upload again"/>
                   </form>
                 }
               }
@@ -371,6 +371,7 @@ function ajaxPost(/** XMLHttpRequest */ xmlhttp, /** string */ request, /** bool
         Main.api.deleteActivity(id.id)
       }
 
+      StravaAuth.report = StravaAuth.Report()
       Main.startUpload()
 
       val responseXml = <html>
