@@ -144,7 +144,7 @@ object MovesLinkUploader {
     }
 
 
-    val experimentalTimeAdjust = -25
+    val experimentalTimeAdjust = -23
     val timelineHRAdjusted = timelineHR.map(_.timeOffset(settings.questTimeOffset + experimentalTimeAdjust))
 
     val toUpload = processTimelines(timelineGPS, timelineHRAdjusted, Nil).reverse
