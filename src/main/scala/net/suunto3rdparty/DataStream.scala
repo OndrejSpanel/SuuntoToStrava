@@ -455,7 +455,7 @@ class DataStreamHRWithDist(override val stream: SortedMap[ZonedDateTime, HRPoint
     }
   }
 
-  override def isAlmostEmpty = DataStream.distanceIsAlmostEmpty(stream.head._2.dist, stream.last._2.dist, stream.head._1, stream.last._1)
+  override def isAlmostEmpty = stream.isEmpty || DataStream.distanceIsAlmostEmpty(stream.head._2.dist, stream.last._2.dist, stream.head._1, stream.last._1)
   override def isNeeded = false
 
   override def pickData(data: DataMap) = new DataStreamHRWithDist(data).rebase
@@ -488,7 +488,7 @@ class DataStreamDist(override val stream: SortedMap[ZonedDateTime, Double]) exte
     }
   }
 
-  override def isAlmostEmpty = DataStream.distanceIsAlmostEmpty(stream.head._2, stream.last._2, stream.head._1, stream.last._1)
+  override def isAlmostEmpty = stream.isEmpty || DataStream.distanceIsAlmostEmpty(stream.head._2, stream.last._2, stream.head._1, stream.last._1)
   override def isNeeded = false
 
   override def pickData(data: DataMap) = new DataStreamDist(data).rebase

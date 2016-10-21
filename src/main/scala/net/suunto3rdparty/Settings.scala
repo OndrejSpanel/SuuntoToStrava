@@ -17,15 +17,17 @@ object Settings {
     props.load(f)
   }
 
-  val questTimeOffset: Int = props.getProperty("questTimeOffset", "0").toInt
-  val maxHR: Int = props.getProperty("maxHR", "240").toInt
+  var questTimeOffset: Int = props.getProperty("questTimeOffset", "0").toInt
+  var maxHR: Int = props.getProperty("maxHR", "240").toInt
 
   def save(newMaxHR: Option[Int], newQuestTimeOffset: Option[Int]): Unit = {
     newMaxHR.foreach { v =>
       props.setProperty("maxHR", v.toString)
+      questTimeOffset = v;
     }
     newQuestTimeOffset.foreach { v =>
       props.setProperty("questTimeOffset", v.toString)
+      maxHR = v;
     }
     for (f <- managed(new FileOutputStream(file))) {
       props.store(f, "SuuntoToStrava configuration")
