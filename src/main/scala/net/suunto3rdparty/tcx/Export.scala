@@ -2,9 +2,9 @@ package net.suunto3rdparty
 package tcx
 
 import java.io._
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 
+import org.joda.time.{DateTime => ZonedDateTime}
+import org.joda.time.format.{DateTimeFormat, DateTimeFormatter, ISODateTimeFormat}
 import MoveHeader.ActivityType._
 import Util._
 import resource._
@@ -18,8 +18,8 @@ object Export {
     val timeBeg = move.startTime.get
     val timeEnd = move.endTime.get
 
-    val timeFormat = DateTimeFormatter.ISO_DATE_TIME
-    val timeBegText = timeBeg.format(timeFormat)
+    val timeFormat = ISODateTimeFormat.dateTimeNoMillis
+    val timeBegText = timeFormat.print(timeBeg)
 
     type MultiSamples = SortedMap[ZonedDateTime, Seq[DataStream#Item]]
 
@@ -59,7 +59,7 @@ object Export {
       }
     }
     def writeEventGroup(evGroup: (ZonedDateTime, Seq[DataStream#Item])): NodeSeq = {
-      val events = <Time>{evGroup._1.format(timeFormat)}</Time> +: evGroup._2.map(writeEvent)
+      val events = <Time>{timeFormat.print(evGroup._1)}</Time> +: evGroup._2.map(writeEvent)
       if (events.nonEmpty) {
         <Trackpoint>
           {events}
@@ -74,7 +74,7 @@ object Export {
         case HRPoint(_, d) => d
       } ).filter(_.nonEmpty)
       val dist = for (begDist <- distOnly.headOption; endDist <- distOnly.lastOption) yield endDist.head - begDist.head
-      <Lap StartTime={lapBeg.format(timeFormat)}>
+      <Lap StartTime={timeFormat.print(lapBeg)}>
         {
         <TotalTimeSeconds>{timeDifference(lapBeg, lapEnd)}</TotalTimeSeconds> +:
         dist.toSeq.map(d => <DistanceMeters>{d}</DistanceMeters>) :+

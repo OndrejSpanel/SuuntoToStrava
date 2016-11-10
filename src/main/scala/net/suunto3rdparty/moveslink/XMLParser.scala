@@ -2,8 +2,9 @@ package net.suunto3rdparty
 package moveslink
 
 import java.io.File
-import java.time._
-import java.time.format.DateTimeFormatter
+
+import org.joda.time.{DateTime=>ZonedDateTime, _}
+import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 import java.util.regex.Pattern
 
 import scala.xml._
@@ -15,7 +16,7 @@ import scala.util.Try
 
 object XMLParser {
   private val log = Logger.getLogger(XMLParser.getClass)
-  private val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault)
+  private val dateFormat = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss").withZone(DateTimeZone.getDefault)
 
   def parseSamples(fileName: String, header: Header, samples: Node): Move = {
     val distanceStr = (samples \ "Distance")(0).text
@@ -66,7 +67,7 @@ object XMLParser {
 
     val timeRange = 0 until header.durationMs by 10000
 
-    def timeMs(ms: Int) = header.startTime.plusNanos(ms*1000000L)
+    def timeMs(ms: Int) = header.startTime.plusMillis(ms*1000)
 
     val hrWithDist = (validatedHR zip distanceSamples).map{ case (hr, d) => hr.map(s => HRPoint(s, d))}
 
@@ -135,9 +136,9 @@ object XMLParser {
         val header = parseHeader(headerNode, deviceName)
 
         def parseDuration(timeStr: String): Duration = {
-          val relTime = LocalTime.parse(timeStr, DateTimeFormatter.ISO_LOCAL_TIME)
-          val relTimeDuration = Duration.between(LocalTime.MIDNIGHT, relTime)
-          relTimeDuration
+          val relTime = LocalTime.parse(timeStr, DateTimeFormat.fullDateTime)
+          val relTimeDuration = Seconds.secondsBetween(LocalTime.MIDNIGHT, relTime)
+          new Duration(relTimeDuration)
         }
 
         val lapDurations = for {

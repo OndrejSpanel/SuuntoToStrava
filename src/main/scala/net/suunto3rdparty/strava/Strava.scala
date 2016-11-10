@@ -2,7 +2,7 @@ package net.suunto3rdparty
 package strava
 
 import java.io._
-import java.time.ZonedDateTime
+import org.joda.time.{DateTime=>ZonedDateTime}
 import java.util.zip.GZIPOutputStream
 
 import org.apache.http.client.HttpResponseException

@@ -4,24 +4,15 @@ version := "0.6.0-alpha"
 
 scalaVersion := "2.11.8"
 
-scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-target:jvm-1.8")
+scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-target:jvm-1.7")
 
-javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
+javacOptions ++= Seq("-source", "1.7", "-target", "1.7", "-Xlint")
 
 val appMain = "net.suunto3rdparty.Main"
 
 mainClass in (Compile, run) := Some(appMain)
 
 mainClass in (Compile, packageBin) := Some(appMain)
-
-initialize := {
-  val _ = initialize.value
-  val specVersion = sys.props("java.specification.version")
-  if (Set("1.5", "1.6", "1.7") contains specVersion) {
-    val javaHome = sys.props("java.home")
-    sys.error(s"Java 8 or higher is required for this project, found $specVersion (from $javaHome).")
-  }
-}
 
 val log4jVersion = "2.5"
 
@@ -36,6 +27,10 @@ libraryDependencies += "org.apache.commons" % "commons-math" % "2.1"
 libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.3"
 
 libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
+
+libraryDependencies += "joda-time" % "joda-time" % "2.9.4"
+
+libraryDependencies += "org.joda" % "joda-convert" % "1.8.1"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.11"
 

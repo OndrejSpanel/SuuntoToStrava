@@ -1,7 +1,6 @@
 package net.suunto3rdparty
 
-import java.time.{Duration, ZonedDateTime}
-
+import org.joda.time.{Duration, Seconds, DateTime => ZonedDateTime}
 import Util._
 
 import scala.reflect._
@@ -50,14 +49,14 @@ case class Move(fileName: Set[String], header: MoveHeader, streams: Map[Class[_]
 
   def duration: Double = {
     val durOpt = for (beg <- startTime; end <- endTime) yield {
-      Duration.between(beg, end).toMillis / 1000.0
+      Seconds.secondsBetween(beg, end).getSeconds.toDouble
     }
     durOpt.getOrElse(0.0)
   }
 
 
   def isEmpty = startTime.isEmpty
-  def isAlmostEmpty(minDurationSec: Long) = {
+  def isAlmostEmpty(minDurationSec: Int) = {
     !streams.exists(_._2.stream.nonEmpty) || endTime.get < startTime.get.plusSeconds(minDurationSec) || streams.exists(x => x._2.isAlmostEmpty)
   }
 

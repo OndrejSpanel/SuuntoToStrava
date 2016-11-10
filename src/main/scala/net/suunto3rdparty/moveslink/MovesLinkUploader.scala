@@ -2,7 +2,7 @@ package net.suunto3rdparty
 package moveslink
 
 import java.io.{File, FileInputStream, IOException}
-import java.time.ZonedDateTime
+import org.joda.time.{DateTime=>ZonedDateTime}
 import java.util.Properties
 
 import strava.StravaAPI

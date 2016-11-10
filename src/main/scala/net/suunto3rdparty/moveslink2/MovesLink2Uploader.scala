@@ -2,7 +2,7 @@ package net.suunto3rdparty
 package moveslink2
 
 import java.io.File
-import java.time.ZonedDateTime
+import org.joda.time.{DateTime=>ZonedDateTime}
 import Util._
 
 import org.apache.log4j.Logger
