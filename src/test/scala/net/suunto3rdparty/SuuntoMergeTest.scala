@@ -35,6 +35,23 @@ class SuuntoMergeTest extends FlatSpec with Matchers {
   it should "load GPS pod file" in {
     val res = gpsStream
 
+    val doc = moveslink2.XMLParser.getDeviceLog(XML.load(res))
+    val move = moveslink2.XMLParser.parseXML("gps.sml", doc)
+
+    move.isFailure shouldBe false
+
+    move.foreach { m =>
+      val gps = m.streamGet[DataStreamGPS]
+      gps.isEmpty shouldBe false
+
+      val t = DateTimeFormatter.ISO_DATE_TIME.parse("2016-10-21T06:46:01Z")
+      m.startTime.contains(t)
+      m.duration shouldBe 4664.6
+
+
+
+    }
+
   }
 
   it should "merge GPS + Quest files" in {
