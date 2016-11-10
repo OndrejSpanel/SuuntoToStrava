@@ -10,17 +10,18 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class DumpFit extends FlatSpec with Matchers {
 
-  "Decoder" should "dump a fit file exported from Movescount" in {
-    val in = getClass.getResourceAsStream("/decodeFitMC.fit")
-    decodeFileToFile("decodeFitMC.txt", in)
-  }
-
-  it should "dump a fit file exported from this app" in {
-    val in = getClass.getResourceAsStream("/decodeFitMy.fit")
-    decodeFileToFile("decodeFitMy.txt", in)
-  }
 
   ignore should "ignore" in {
+    "Decoder" should "dump a fit file exported from Movescount" in {
+      val in = getClass.getResourceAsStream("/decodeFitMC.fit")
+      decodeFileToFile("decodeFitMC.txt", in)
+    }
+
+    it should "dump a fit file exported from this app" in {
+      val in = getClass.getResourceAsStream("/decodeFitMy.fit")
+      decodeFileToFile("decodeFitMy.txt", in)
+    }
+
     "Decoder" should "dump a fit file" in {
       val in = getClass.getResourceAsStream("/decodeTest.fit")
       decodeFile(in)
