@@ -48,14 +48,17 @@ object XMLParser {
     interpolator.interpolate(timeArray.toArray, hrArray.toArray)
   }
 
+  def getDeviceLog(doc: Elem): Node = (doc \ "DeviceLog") (0)
+
   def getXMLDocument(xmlFile: File): Elem = {
     XML.loadFile(xmlFile)
   }
 
   def getSMLDocument(xmlFile: File): Node = {
     val doc = XML.loadFile(xmlFile)
-    (doc \ "DeviceLog")(0)
+    getDeviceLog(doc)
   }
+
 
   def getRRArray(rrData: String): Seq[Int] = {
     val rrArray = rrData.split(" ")
@@ -227,7 +230,10 @@ object XMLParser {
     } else if (xmlFile.getName.endsWith(".sml")) {
       getSMLDocument(xmlFile)
     } else throw new UnsupportedOperationException(s"Unknown data format ${xmlFile.getName}")
+    parseXML(fileName, doc)
+  }
 
+  def parseXML(fileName: String, doc: Node): Try[Move] = {
     val samples = doc \ "Samples"
     val rrData = Try((doc \ "R-R" \ "Data")(0))
     val rr = rrData.map(node => getRRArray(node.text))

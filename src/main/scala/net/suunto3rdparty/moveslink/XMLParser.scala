@@ -121,6 +121,11 @@ object XMLParser {
     XMLParser.log.debug("Parsing " + xmlFile.getName)
     val document = XML.loadFile(xmlFile)
 
+    parseXML(fileName, document)
+  }
+
+  def parseXML(fileName: String, document: Elem): Seq[Move] = {
+
     val deviceNodes = document \ "Device" \ "FullName"
 
     val deviceName = deviceNodes.headOption.map(_.text)
