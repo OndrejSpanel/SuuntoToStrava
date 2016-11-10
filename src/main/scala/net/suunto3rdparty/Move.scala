@@ -1,7 +1,7 @@
 package net.suunto3rdparty
 
-import org.joda.time.{Duration, Seconds, DateTime => ZonedDateTime}
-import Util._
+import net.suunto3rdparty.Util._
+import org.joda.time.{Interval, DateTime => ZonedDateTime}
 
 import scala.reflect._
 
@@ -49,7 +49,7 @@ case class Move(fileName: Set[String], header: MoveHeader, streams: Map[Class[_]
 
   def duration: Double = {
     val durOpt = for (beg <- startTime; end <- endTime) yield {
-      Seconds.secondsBetween(beg, end).getSeconds.toDouble
+      new Interval(beg, end).toDurationMillis.toDouble / 1000
     }
     durOpt.getOrElse(0.0)
   }

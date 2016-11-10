@@ -4,7 +4,7 @@ package moveslink
 import java.io.File
 
 import org.joda.time.{DateTime=>ZonedDateTime, _}
-import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
+import org.joda.time.format.DateTimeFormat
 import java.util.regex.Pattern
 
 import scala.xml._
@@ -67,7 +67,7 @@ object XMLParser {
 
     val timeRange = 0 until header.durationMs by 10000
 
-    def timeMs(ms: Int) = header.startTime.plusMillis(ms*1000)
+    def timeMs(ms: Int) = header.startTime.plusMillis(ms)
 
     val hrWithDist = (validatedHR zip distanceSamples).map{ case (hr, d) => hr.map(s => HRPoint(s, d))}
 
