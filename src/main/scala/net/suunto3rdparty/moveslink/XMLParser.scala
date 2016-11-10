@@ -3,8 +3,8 @@ package moveslink
 
 import java.io.File
 
-import org.joda.time.{DateTime=>ZonedDateTime, _}
-import org.joda.time.format.DateTimeFormat
+import org.joda.time.{DateTime => ZonedDateTime, _}
+import org.joda.time.format.{DateTimeFormat, PeriodFormat, PeriodFormatter}
 import java.util.regex.Pattern
 
 import scala.xml._
@@ -141,9 +141,9 @@ object XMLParser {
         val header = parseHeader(headerNode, deviceName)
 
         def parseDuration(timeStr: String): Duration = {
-          val relTime = LocalTime.parse(timeStr, DateTimeFormat.fullDateTime)
-          val relTimeDuration = Seconds.secondsBetween(LocalTime.MIDNIGHT, relTime)
-          new Duration(relTimeDuration)
+          val relTime = LocalTime.parse(timeStr)
+          val ms = relTime.getMillisOfDay
+          new Duration(ms)
         }
 
         val lapDurations = for {
