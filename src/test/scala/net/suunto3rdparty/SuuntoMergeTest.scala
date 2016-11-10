@@ -4,19 +4,30 @@ import java.time.format.DateTimeFormatter
 
 import org.scalatest.{FlatSpec, Matchers}
 
+import scala.util.Try
 import scala.xml._
 
 class SuuntoMergeTest extends FlatSpec with Matchers {
   behavior of "SuuntoMerge"
 
-  private def questStream = getClass.getResourceAsStream("/suuntoMerge/Moveslink/quest.xml")
-  private def gpsStream = getClass.getResourceAsStream("/suuntoMerge/Moveslink2/gps.sml")
+  private def gpsPodMove = {
+    val res = getClass.getResourceAsStream("/suuntoMerge/Moveslink2/gps.sml")
 
-  it should "load Quest file" in {
-    val res = questStream
+    val doc = moveslink2.XMLParser.getDeviceLog(XML.load(res))
+    val move = moveslink2.XMLParser.parseXML("gps.sml", doc)
+    move
+  }
+
+  private def questMove = {
+    val res = getClass.getResourceAsStream("/suuntoMerge/Moveslink/quest.xml")
     val doc = XML.load(res)
 
     val move = moveslink.XMLParser.parseXML("quest.xml", doc)
+    move
+  }
+
+  it should "load Quest file" in {
+    val move = questMove
 
     move.isEmpty shouldBe false
 
@@ -33,10 +44,7 @@ class SuuntoMergeTest extends FlatSpec with Matchers {
   }
 
   it should "load GPS pod file" in {
-    val res = gpsStream
-
-    val doc = moveslink2.XMLParser.getDeviceLog(XML.load(res))
-    val move = moveslink2.XMLParser.parseXML("gps.sml", doc)
+    val move = gpsPodMove
 
     move.isFailure shouldBe false
 
@@ -49,13 +57,18 @@ class SuuntoMergeTest extends FlatSpec with Matchers {
       m.duration shouldBe 4664.6
 
 
-
     }
 
   }
 
   it should "merge GPS + Quest files" in {
+    for (hr <- questMove; gps <- gpsPodMove) {
+      val m = gps.addStream(hr, hr.stream[DataStreamHRWithDist])
+      m.isEmpty shouldBe false
+      m.duration shouldBe 4664.6
+      m.isAlmostEmpty(30) shouldBe false
 
+    }
   }
 
 }
