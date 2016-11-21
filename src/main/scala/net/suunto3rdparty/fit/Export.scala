@@ -4,8 +4,8 @@ package fit
 import com.garmin.fit
 import com.garmin.fit._
 import java.io.File
-import java.time.{Duration, ZonedDateTime}
 
+import org.joda.time.{Duration, Seconds, DateTime => ZonedDateTime}
 import Util._
 import net.suunto3rdparty.MoveHeader.ActivityType._
 
@@ -110,11 +110,11 @@ object Export {
       myMsg.setStartTime(toTimestamp(lastLapStart))
       myMsg.setTimestamp(toTimestamp(time))
       myMsg.setMessageIndex(lapCounter)
-      val lapDurationSec = Duration.between(lastLapStart, time).toMillis / 1000.0f
+      val lapDurationSec = Seconds.secondsBetween(lastLapStart, time).getSeconds
       lastLapStart = time
       lapCounter += 1
-      myMsg.setTotalElapsedTime(lapDurationSec)
-      myMsg.setTotalTimerTime(lapDurationSec)
+      myMsg.setTotalElapsedTime(lapDurationSec.toFloat)
+      myMsg.setTotalTimerTime(lapDurationSec.toFloat)
       myMsg
 
 
@@ -202,7 +202,7 @@ object Export {
   }
   def toTimestamp(zonedTime: ZonedDateTime): DateTime = {
     val instant = zonedTime.toInstant
-    val timestamp = instant.getEpochSecond - DateTime.OFFSET / 1000.0 + instant.getNano / 1000000000.0
+    val timestamp = (instant.getMillis - DateTime.OFFSET) / 1000.0
     val dateTime = new DateTime(0, timestamp)
     dateTime
   }

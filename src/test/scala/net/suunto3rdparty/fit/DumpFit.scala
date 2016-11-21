@@ -10,9 +10,26 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class DumpFit extends FlatSpec with Matchers {
 
+  behavior of "Decoder"
+
+  it should "dump a fit file" in {
+    val in = getClass.getResourceAsStream("/decodeTest.fit")
+    decodeFile(in)
+  }
+
+  it should "dump extra information from a fit file" in {
+    val in = getClass.getResourceAsStream("/decodeTestExt.fit")
+    decodeFile(in, "record")
+  }
+
+  it should "dump device information from a Quest fit file" in {
+    val in = getClass.getResourceAsStream("/decodeTestQuest.fit")
+    decodeFile(in) //, "record")
+  }
 
   ignore should "ignore" in {
-    "Decoder" should "dump a fit file exported from Movescount" in {
+
+    it should "dump a fit file exported from Movescount" in {
       val in = getClass.getResourceAsStream("/decodeFitMC.fit")
       decodeFileToFile("decodeFitMC.txt", in)
     }
@@ -22,20 +39,7 @@ class DumpFit extends FlatSpec with Matchers {
       decodeFileToFile("decodeFitMy.txt", in)
     }
 
-    "Decoder" should "dump a fit file" in {
-      val in = getClass.getResourceAsStream("/decodeTest.fit")
-      decodeFile(in)
-    }
 
-    "Decoder" should "dump extra information from a fit file" in {
-      val in = getClass.getResourceAsStream("/decodeTestExt.fit")
-      decodeFile(in, "record")
-    }
-
-    "Decoder" should "dump device information from a Quest fit file" in {
-      val in = getClass.getResourceAsStream("/decodeTestQuest.fit")
-      decodeFile(in) //, "record")
-    }
 
     "Output fit" should "contain laps" in {
       val in = getClass.getResourceAsStream("/testoutputLaps.fit")

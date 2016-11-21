@@ -2,9 +2,9 @@ package net.suunto3rdparty
 package moveslink2
 
 import java.io._
-import java.time.{ZoneOffset, ZonedDateTime, ZoneId}
-import java.time.format.DateTimeFormatter
 
+import org.joda.time.{DateTimeZone, DateTime => ZonedDateTime}
+import org.joda.time.format.{DateTimeFormat, ISODateTimeFormat}
 import org.apache.commons.math.ArgumentOutsideDomainException
 import org.apache.commons.math.analysis.interpolation.SplineInterpolator
 import org.apache.commons.math.analysis.polynomials.PolynomialSplineFunction
@@ -19,8 +19,8 @@ object XMLParser {
   private val log = Logger.getLogger(XMLParser.getClass)
   private val PositionConstant = 57.2957795131
 
-  private val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").withZone(ZoneOffset.UTC)
-  private val dateFormatNoZone = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneId.systemDefault)
+  private val dateFormat = ISODateTimeFormat.dateTimeNoMillis
+  private val dateFormatNoZone = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(DateTimeZone.getDefault)
 
   def interpolate(spline: PolynomialSplineFunction, x: Double): Double = {
     try {
@@ -174,7 +174,7 @@ object XMLParser {
             val hrTry = Try((sample \ "HR")(0).text)
             val elevationTry = Try((sample \ "Altitude")(0).text)
             val timeTry = Try(ZonedDateTime.parse((sample \ "UTC")(0).text))
-            val timeSim = header.startTime.plusNanos((time * 1000000000L).toLong)
+            val timeSim = header.startTime.plusMillis((time * 1000).toInt)
             // prefer UTC when present
             val timeUtc = timeTry.getOrElse(timeSim)
             // replace missing values with zeroes - this is what Quest is recording on failure anyway

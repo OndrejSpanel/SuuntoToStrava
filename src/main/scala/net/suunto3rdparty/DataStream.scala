@@ -1,6 +1,6 @@
 package net.suunto3rdparty
 
-import java.time.{Duration, ZonedDateTime}
+import org.joda.time.{Period, ReadablePeriod, Seconds, DateTime => ZonedDateTime}
 
 import scala.collection.immutable.SortedMap
 import Util._
@@ -49,7 +49,7 @@ sealed abstract class DataStream {
   def timeOffset(bestOffset: Int): DataStream = {
     val adjusted = stream.map{
       case (k,v) =>
-        k.plus(Duration.ofSeconds(bestOffset)) -> v
+        k.plus(bestOffset*1000) -> v
     }
     pickData(adjusted)
   }
@@ -107,7 +107,7 @@ object DataStreamGPS {
         else {
           val item0 = input.head
           val item1 = input.tail.head
-          val duration = Duration.between(input.head._1, input.tail.head._1).getSeconds
+          val duration = Seconds.secondsBetween(input.head._1, input.tail.head._1).getSeconds
           if (duration>1) {
             // missing sample
             val missingCount = duration - 1
@@ -141,12 +141,12 @@ object DataStreamGPS {
       else if (prev.isEmpty) {
         smoothingRecurse(done + todo.head, prev + todo.head, todo.tail)
       } else {
-        def durationWindow(win: DistStream) = Duration.between(win.keys.head, win.keys.last).getSeconds
+        def durationWindow(win: DistStream) = Seconds.secondsBetween(win.keys.head, win.keys.last).getSeconds
         def keepWindow(win: DistStream): DistStream = if (durationWindow(win) <= durationSec) win else keepWindow(win.tail)
         val newWindow = keepWindow(prev + todo.head)
         val duration = durationWindow(newWindow)
         val windowSpeed = if (duration > 0) prev.values.sum / duration else 0.0
-        val interval = Duration.between(prev.last._1, todo.head._1).getSeconds
+        val interval = Seconds.secondsBetween(prev.last._1, todo.head._1).getSeconds
         val smoothDist = (windowSpeed * duration + todo.head._2) / ( duration + interval)
         smoothingRecurse(done + (todo.head._1 -> smoothDist), newWindow, todo.tail)
       }
@@ -214,7 +214,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
         }
       }
 
-      def dropEmptyPrefix(stream: ValueList, timeOffset: Duration, compare: (ZonedDateTime, ZonedDateTime) => Boolean): (ZonedDateTime, ZonedDateTime) = {
+      def dropEmptyPrefix(stream: ValueList, timeOffset: ReadablePeriod, compare: (ZonedDateTime, ZonedDateTime) => Boolean): (ZonedDateTime, ZonedDateTime) = {
         val prefixTime = detectEmptyPrefix(stream.head._1, new GPSRect(stream.head._2), stream, None)
         prefixTime.map { case (prefTime, prefRect) =>
           // trace back the prefix rectangle size
@@ -242,8 +242,8 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
         }.getOrElse((stream.head._1, stream.last._1))
       }
 
-      val droppedPrefixTime = dropEmptyPrefix(stream.toList, Duration.ofSeconds(-10), _ <= _)
-      val droppedPostfixTime = dropEmptyPrefix(stream.toList.reverse, Duration.ofSeconds(+10), _ >= _)
+      val droppedPrefixTime = dropEmptyPrefix(stream.toList, Seconds.seconds(-10), _ <= _)
+      val droppedPostfixTime = dropEmptyPrefix(stream.toList.reverse, Seconds.seconds(+10), _ >= _)
       if (droppedPrefixTime._1 >= droppedPostfixTime._1) None
       else Some((droppedPrefixTime._1, droppedPostfixTime._1))
     } else None
@@ -293,7 +293,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
 
       val distPairs = distToMatch zip distToMatch.drop(1) // drop(1), not tail, because distToMatch may be empty
       val speedToMatch = distPairs.map {
-        case ((aTime, aDist), (bTime, bDist)) => aTime -> aDist / Duration.between(aTime, bTime).getSeconds
+        case ((aTime, aDist), (bTime, bDist)) => aTime -> aDist / Seconds.secondsBetween(aTime, bTime).getSeconds
       }
       val smoothedSpeed = selectInner(speedStream)
 
@@ -374,7 +374,7 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
     val speedStream = computeSpeedStream
     val errors = for (offset <- offsets) yield {
       val offsetStream = distanceStream.map { case (k,v) =>
-        k.plus(Duration.ofSeconds(offset)) -> v
+        k.plus(Seconds.seconds(offset)) -> v
       }
       errorToStream(offsetStream, speedStream)
     }

@@ -1,10 +1,8 @@
 package net.suunto3rdparty
 
-import java.time.format.DateTimeFormatter
-
+import org.joda.time.format.ISODateTimeFormat
 import org.scalatest.{FlatSpec, Matchers}
 
-import scala.util.Try
 import scala.xml._
 
 class SuuntoMergeTest extends FlatSpec with Matchers {
@@ -37,7 +35,7 @@ class SuuntoMergeTest extends FlatSpec with Matchers {
 
       m.streamGet[DataStreamLap].isEmpty shouldBe false
 
-      val t = DateTimeFormatter.ISO_DATE_TIME.parse("2016-10-21T06:46:57Z")
+      val t = ISODateTimeFormat.dateTimeNoMillis.parseDateTime("2016-10-21T06:46:57Z")
       m.startTime.contains(t)
       m.duration shouldBe 842.4
     }
@@ -52,7 +50,7 @@ class SuuntoMergeTest extends FlatSpec with Matchers {
       val gps = m.streamGet[DataStreamGPS]
       gps.isEmpty shouldBe false
 
-      val t = DateTimeFormatter.ISO_DATE_TIME.parse("2016-10-21T06:46:01Z")
+      val t = ISODateTimeFormat.dateTimeNoMillis.parseDateTime("2016-10-21T06:46:01Z")
       m.startTime.contains(t)
       m.duration shouldBe 4664.6
 

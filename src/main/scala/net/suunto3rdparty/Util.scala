@@ -1,8 +1,9 @@
 package net.suunto3rdparty
 
 import java.io.File
-import java.time.{Duration, ZoneOffset, ZonedDateTime}
-import java.time.format.DateTimeFormatter
+
+import org.joda.time.{DateTimeZone, DateTime => ZonedDateTime}
+import org.joda.time.format.DateTimeFormat
 
 object Util {
 
@@ -10,18 +11,18 @@ object Util {
     override def compare(that: ZonedDateTimeOps): Int = time.compareTo(that.time)
 
     def toLog: String = {
-      val format = DateTimeFormatter.ofPattern("dd/MM HH:mm:ss")
-      format.format(time)
+      val format = DateTimeFormat.forPattern("dd/MM HH:mm:ss")
+      format.print(time)
     }
 
     def toLogShort: String = {
-      val format = DateTimeFormatter.ofPattern("HH:mm:ss")
-      format.format(time)
+      val format = DateTimeFormat.forPattern("HH:mm:ss")
+      format.print(time)
     }
 
     def toFileName: String = {
-      val format = DateTimeFormatter.ofPattern("YYYY-MM-dd-HH-mm")
-      format.format(time)
+      val format = DateTimeFormat.forPattern("YYYY-MM-dd-HH-mm")
+      format.print(time)
     }
   }
 
@@ -35,11 +36,11 @@ object Util {
   }
 
   def timeToUTC(dateTime: ZonedDateTime) = {
-    ZonedDateTime.ofInstant(dateTime.toInstant, ZoneOffset.UTC)
+    dateTime.withZone(DateTimeZone.UTC)
   }
 
   def timeDifference(beg: ZonedDateTime, end: ZonedDateTime): Double = {
-    Duration.between(beg, end).toMillis * 0.001
+    (end.getMillis - beg.getMillis) * 0.001
   }
 
   def kiloCaloriesFromKilojoules(kj: Double): Int = (kj / 4184).toInt
