@@ -14,6 +14,7 @@ import scala.annotation.tailrec
 
 object MovesLinkUploader {
   val fileTest = false
+  val uploadTest = false // ingore Strava time stamp, do not mark files as uploaded
 
   private val log = Logger.getLogger(getClass)
 
@@ -68,10 +69,15 @@ object MovesLinkUploader {
     // create overlapping timelines Quest / GPS
     val ignoreDuration = 30
 
-    (index ++ questMoves).filter(_.isAlmostEmpty(ignoreDuration)).foreach(markUploaded)
+    val questMovesAdjusted = questMoves.map(_.timeOffset(-settings.questTimeOffset))
 
-    val timelineGPS = index.toList.filterNot(_.isAlmostEmpty(ignoreDuration)).sorted
-    val timelineHR = questMoves.toList.filterNot(_.isAlmostEmpty(ignoreDuration)).sorted
+
+    def filterIgnored(x : Move) = if (uploadTest || fileTest) false else x.isAlmostEmpty(ignoreDuration)
+
+    val timelineGPS = index.toList.filterNot(filterIgnored).sorted
+    val timelineHR = questMovesAdjusted.toList.filterNot(filterIgnored).sorted
+
+    (index ++ questMovesAdjusted).filter(filterIgnored).foreach(markUploaded)
 
     @tailrec
     def processTimelines(lineGPS: List[Move], lineHRD: List[Move], processed: List[Move]): List[Move] = {
@@ -144,10 +150,7 @@ object MovesLinkUploader {
     }
 
 
-    val experimentalTimeAdjust = -23
-    val timelineHRAdjusted = timelineHR.map(_.timeOffset(settings.questTimeOffset + experimentalTimeAdjust))
-
-    val toUpload = processTimelines(timelineGPS, timelineHRAdjusted, Nil).reverse
+    val toUpload = processTimelines(timelineGPS, timelineHR, Nil).reverse
 
     var uploaded = List[UploadId]()
     var processed = 0
@@ -182,7 +185,7 @@ object MovesLinkUploader {
   }
   def markUploadedFile(filename: String): Unit = {
     try {
-      if (!fileTest) {
+      if (!fileTest && !uploadTest) {
         val markFile = new File(uploadedFolder, "/" + filename)
         markFile.createNewFile()
       }
@@ -192,7 +195,7 @@ object MovesLinkUploader {
   }
   def unmarkUploadedFile(filename: String): Unit = {
     try {
-      if (!fileTest) {
+      if (!fileTest && !uploadTest) {
         val markFile = new File(uploadedFolder, "/" + filename)
         markFile.delete()
       }

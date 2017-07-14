@@ -17,6 +17,15 @@ object Settings {
     props.load(f)
   }
 
+  /**
+    * how much are Quest watches are ahead of real time
+    * real time = quest time - questTimeOffset
+  Example:
+    Current time	14:51:49
+    Quest time	14:52:18
+    Quest time offset 29
+  */
+
   var questTimeOffset: Int = props.getProperty("questTimeOffset", "0").toInt
   var maxHR: Int = props.getProperty("maxHR", "240").toInt
 

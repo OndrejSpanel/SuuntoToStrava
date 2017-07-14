@@ -38,7 +38,7 @@ object Main extends App {
 
     if (api.authString.nonEmpty) {
 
-      val after = if (MovesLinkUploader.fileTest) None else api.mostRecentActivityTime
+      val after = if (MovesLinkUploader.fileTest || MovesLinkUploader.uploadTest) None else api.mostRecentActivityTime
 
       log.info("Reading MovesLink2 ...")
       if (!MovesLink2Uploader.checkIfEnvOkay || !MovesLinkUploader.checkIfEnvOkay) {

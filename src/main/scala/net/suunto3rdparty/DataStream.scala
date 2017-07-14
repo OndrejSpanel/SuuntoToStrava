@@ -399,13 +399,23 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
 
     // smoothing causes offset in one direction
     //val empiricalOffset = 30 // this is for Quest smoothing 5 and GPS smoothing (smoothingInterval) 30
-    val empiricalOffset = 18 // this is for Quest smoothing 5 and GPS smoothing (smoothingInterval) 60
+    val empiricalOffset = 13 // this is for Quest smoothing 5 and GPS smoothing (smoothingInterval) 60
     (minErrorOffset + empiricalOffset, confidenceForSolution(minErrorOffset))
   }
 
   def adjustHrd(hrdMove: Move): Move = {
+
+
     val hrWithDistStream = hrdMove.streamGet[DataStreamHRWithDist]
     hrWithDistStream.map { dist =>
+      // try first: assume user stops watch first, GPS pod quickly after, i.e. offset can be determined based on the end times
+
+      val gpsAfterHrd = 3000 // time in ms it takes to stop GPS after stopping HR
+
+      // match values: stream.last._1 = dist.stream.last._1 + xxxx + gpsAfterHrd
+
+      val endOffset = (stream.last._1.getMillis - dist.stream.last._1.getMillis - gpsAfterHrd).toInt
+
       val distanceSums = dist.stream.mapValues(_.dist)
       val distances = (dist.stream.values.tail zip dist.stream.values).map(ab => ab._1.dist - ab._2.dist)
 
@@ -424,8 +434,14 @@ class DataStreamGPS(override val stream: SortedMap[ZonedDateTime, GPSPoint]) ext
       val distancesWithTimes = SortedMap((distanceSums.keys zip distancesSmooth).toSeq:_*)
       val (bestOffset, confidence) = findOffset(distancesWithTimes)
       println(s"Quest offset $bestOffset from distance ${distanceSums.last._2}, confidence $confidence")
+      println(s"Offset based on stop time: $endOffset")
       //hrdMove.timeOffset(bestOffset)
-      hrdMove
+      if (endOffset.abs < 10) {
+        // some smart verification between estimated and measured end offset
+        hrdMove.timeOffset((endOffset / 1000.0).round.toInt)
+      } else {
+        hrdMove
+      }
     }.getOrElse(hrdMove)
   }
 
