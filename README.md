@@ -1,5 +1,9 @@
 # SuuntoToStrava
 
+# Deprecated
+
+This is no longer supported or developed, is is now fully replaced with [Stravamat][Stravamat]
+
 Automatic merge and upload of Suunto Quest and Suunto GPS Tracking Pod data.
 
 This utility automates steps needed when using [Suunto GPS Tracking Pod][SuuntoGPS]
@@ -77,6 +81,7 @@ respectively.
 
 Some code (Suunto Move file parsers) adapted from https://github.com/oldhu/suunto2nike
 
+[Stravamat]: https://github.com/OndrejSpanel/Stravamat
 [SuuntoGPS]: http://www.suunto.com/Products/PODs/Suunto-GPS-Track-POD/
 [SuuntoQuest]: http://www.suunto.com/sports-watch-collections/Suunto-Quest-Collection/
 [Strava]: https://www.strava.com
